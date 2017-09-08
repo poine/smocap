@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<launch>
+
+  <param name="smocap_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/smocap.urdf.xacro"/>
+
+  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
+	args="-urdf -model smocap -param smocap_description" />
+
+  <node name="smocap_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" >
+    <remap from="robot_description" to="smocap_description" />
+  </node>
+  
+  <node pkg="tf" type="static_transform_publisher" name="world_to_cam_publisher" args="1 1 1.5 0 1.57079632679 0 /world /camera_link 100"/>
+
+  <node pkg="tf" type="static_transform_publisher" name="map_to_world_publisher" args="-0.5 -0.5 0 0 0 0 /map /world 100"/>
+
+  <!-- debug marker
+  <node pkg="tf" type="static_transform_publisher" name="irm_c_to_irm_publisher" args="0.   0.    0.155 0 0 0  /base_link /irm_c  100"/>
+  <node pkg="tf" type="static_transform_publisher" name="irm_l_to_irm_publisher" args="0.   0.045 0.155 0 0 0  /base_link /irm_l  100"/>
+  <node pkg="tf" type="static_transform_publisher" name="irm_r_to_irm_publisher" args="0.  -0.045 0.155 0 0 0  /base_link /irm_r  100"/>
+  <node pkg="tf" type="static_transform_publisher" name="irm_f_to_irm_publisher" args="0.04 0.0   0.155 0 0 0  /base_link /irm_f  100"/>
+  -->
+  
+</launch>
