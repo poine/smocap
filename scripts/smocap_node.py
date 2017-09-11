@@ -17,6 +17,7 @@ class SMoCapNode:
         self.publish_thruth = rospy.get_param('~publish_thruth', True)
         self.publish_est =    rospy.get_param('~publish_est', True)
         
+        
         if self.publish_image:
             self.image_pub = rospy.Publisher("/smocap/image_debug", sensor_msgs.msg.Image, queue_size=1)
 
@@ -111,15 +112,16 @@ class SMoCapNode:
         
         self.smocap.detect_keypoints(cv_image)
         #print('detected img points\n{}'.format(self.smocap.detected_kp_img))
-        self.smocap.identify_keypoints()
-        #print('identified img points\n{}'.format(self.smocap.detected_kp_img[self.smocap.kp_of_marker]))
-        #self.smocap.detected_kp_img[self.smocap.kp_of_marker[self.smocap.marker_c]]
-        #pdb.set_trace()
-        if self.publish_thruth and body_to_world_T is not None:
-            err_img_points = np.mean(np.linalg.norm(self.smocap.projected_markers_img - self.smocap.detected_kp_img[self.smocap.kp_of_marker], axis=1))
-        #print('err projected img points {:.1f} pixel'.format(err_img_points))
-
-        self.smocap.track()
+        if self.smocap.keypoints_detected():
+            self.smocap.identify_keypoints()
+            #print('identified img points\n{}'.format(self.smocap.detected_kp_img[self.smocap.kp_of_marker]))
+            #self.smocap.detected_kp_img[self.smocap.kp_of_marker[self.smocap.marker_c]]
+            #pdb.set_trace()
+            if self.publish_thruth and body_to_world_T is not None:
+                err_img_points = np.mean(np.linalg.norm(self.smocap.projected_markers_img - self.smocap.detected_kp_img[self.smocap.kp_of_marker], axis=1))
+                #print('err projected img points {:.1f} pixel'.format(err_img_points))
+            if self.smocap.keypoints_identified():
+                self.smocap.track()
         
         
      

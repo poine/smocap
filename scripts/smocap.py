@@ -53,14 +53,24 @@ class SMoCap:
         self.world_to_cam_r, foo = cv2.Rodrigues(self.world_to_cam_T[:3,:3])
 
     def detect_keypoints(self, img):
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        mask1 = cv2.inRange(hsv, *self.lower_red_hue_range)
-        #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
-        self.keypoints = self.detector.detect(255-mask1)
+        if 0:
+            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+            mask1 = cv2.inRange(hsv, *self.lower_red_hue_range)
+            #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
+            self.keypoints = self.detector.detect(255-mask1)
+        else:
+            self.keypoints = self.detector.detect(255-img)
         #print('detected img points\n{}'.format(np.array([kp.pt for kp in keypoints])))
         self.detected_kp_img = np.array([kp.pt for kp in self.keypoints])
         return self.keypoints
 
+    def keypoints_detected(self):
+        return len(self.detected_kp_img) == 4
+
+    def keypoints_identified(self):
+        return False
+     
+    
     def identify_keypoints(self):
         ''' naive identification of markers '''
         if len(self.detected_kp_img) != 4: return
@@ -132,10 +142,10 @@ class SMoCap:
 
 
 
-    def draw_debug_on_image(self, img, draw_id=True):
+    def draw_debug_on_image(self, img, draw_kp_id=True):
         img_with_keypoints = cv2.drawKeypoints(img, self.keypoints, np.array([]), (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
-        if draw_id:
+        if  draw_kp_id and self.keypoints_detected() and self.keypoints_identified():
             for i in range(len(self.keypoints)):
                 cv2.putText(img_with_keypoints, self.markers_names[self.marker_of_kp[i]],
                             round_pt(self.keypoints[i].pt), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
