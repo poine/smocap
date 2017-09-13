@@ -11,35 +11,47 @@ def round_pt(p): return (int(p[0]), int(p[1]))
 
 class SMoCapNode:
 
-    def __init__(self, img_topic='/smocap/camera/image_raw'):
-        self.show_gui =       rospy.get_param('~show_gui', False)
-        self.publish_image =  rospy.get_param('~publish_image', True)
-        self.publish_thruth = rospy.get_param('~publish_thruth', True)
-        self.publish_est =    rospy.get_param('~publish_est', True)
-        
-        
+    def __init__(self):
+        self.show_gui =      rospy.get_param('~show_gui', False)
+        self.publish_image = rospy.get_param('~publish_image', True)
+        self.publish_truth = rospy.get_param('~publish_truth', True)
+        self.publish_est =   rospy.get_param('~publish_est', True)
+        camera = rospy.get_param('~camera', '/camera')
+        detect_rgb = rospy.get_param('~detect_rgb', False)
+        detect_min_area = rospy.get_param('~detect_min_area', 2)
+
+        self.last_frame_time = None
+        self.processing_duration = None
+        self.fps, self.fps_lp = 0., 0.95
+
+        self.smocap = smocap.SMoCap(detect_rgb, detect_min_area)
+
         if self.publish_image:
             self.image_pub = rospy.Publisher("/smocap/image_debug", sensor_msgs.msg.Image, queue_size=1)
 
-        if self.publish_thruth:
-            self.thruth_pub = rospy.Publisher('/smocap/thruth', geometry_msgs.msg.PoseStamped, queue_size=1)
+        if self.publish_truth:
+            self.truth_pub = rospy.Publisher('/smocap/truth', geometry_msgs.msg.PoseStamped, queue_size=1)
             self.thl = utils.TruthListener()
 
         if self.publish_est:
             self.est_pub = rospy.Publisher('/smocap/est', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
             
-        self.bridge = cv_bridge.CvBridge()
-        self.image_sub = rospy.Subscriber(img_topic, sensor_msgs.msg.Image, self.img_callback)
-
         self.tfl = utils.TfListener()
 
-        self.smocap = smocap.SMoCap()
+        self.bridge = cv_bridge.CvBridge()
+        self.image_sub = rospy.Subscriber(camera+'/image_raw', sensor_msgs.msg.Image, self.img_callback)
+        self.camera_info_sub = rospy.Subscriber(camera+'/camera_info', sensor_msgs.msg.CameraInfo, self.cam_info_callback)
+        
+
             
-        self.last_frame_time = None
-        self.processing_duration = None
-        self.fps, self.fps_lp = 0., 0.5
 
 
+    def cam_info_callback(self, msg):
+        print msg.K, msg.D
+        self.camera_info_sub.unregister()
+        self.camera_info_sub = None
+        self.smocap.set_camera_calibration(np.array(msg.K).reshape(3,3), np.array(msg.D))
+        
     def draw_debug_image(self, img, draw_true_markers=False):
         img_with_keypoints = self.smocap.draw_debug_on_image(img)
 
@@ -50,29 +62,30 @@ class SMoCapNode:
                 cv2.circle(img_with_keypoints, loc, 5, (0,255,0), 1)
                 cv2.putText(img_with_keypoints, self.smocap.markers_names[i], loc, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1) 
 
-            
-        if self.processing_duration is not None:
-            loc = (10, 780)
-            cv2.putText(img_with_keypoints, '{:5.1f} fps'.format(self.fps), loc, cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 2) 
+        txt = '{:5.1f} fps, {} detected, '.format(self.fps, len(self.smocap.keypoints))
+        h, w, d = img.shape    
+        loc = (10, h-20)
+        cv2.putText(img_with_keypoints, txt, loc, cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 2) 
             
         return img_with_keypoints
 
 
-    def do_publish_thruth(self):
+    def do_publish_truth(self):
         msg = geometry_msgs.msg.PoseStamped()
         msg.pose = self.thl.pose
         msg.header.frame_id = "/world"
         msg.header.stamp = rospy.Time.now()
-        self.thruth_pub.publish(msg)
+        self.truth_pub.publish(msg)
 
     def do_publish_est(self):
         msg = geometry_msgs.msg.PoseWithCovarianceStamped()
         utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.cam_to_body_T)
         msg.header.frame_id = "/camera_optical_frame"#"/world"
-        msg.header.stamp = rospy.Time.now()
+        msg.header.stamp = self.last_frame_time#rospy.Time.now()
         self.est_pub.publish(msg)
         
     def img_callback(self, msg):
+        print msg.header
         if self.last_frame_time is not None:
             self.processing_duration = msg.header.stamp - self.last_frame_time
             self.fps = self.fps_lp*self.fps + (1-self.fps_lp)/self.processing_duration.to_sec()
@@ -96,7 +109,7 @@ class SMoCapNode:
         #body_to_world_t, body_to_world_q = self.tfl.get('/world', '/base_link')#self.tfl.get('/base_link', '/world')
         #body_to_world_T = utils.T_of_quat_t(body_to_world_q, body_to_world_t)
         #print('body_to_world tf\n{}'.format(body_to_world_T))
-        if self.publish_thruth:
+        if self.publish_truth:
             body_to_world_T = self.thl.get_body_to_world_T()
             #print('body_to_world gz\n{}'.format(self.thl.get_body_to_world_T()))
             if body_to_world_T is not None:
@@ -117,7 +130,7 @@ class SMoCapNode:
             #print('identified img points\n{}'.format(self.smocap.detected_kp_img[self.smocap.kp_of_marker]))
             #self.smocap.detected_kp_img[self.smocap.kp_of_marker[self.smocap.marker_c]]
             #pdb.set_trace()
-            if self.publish_thruth and body_to_world_T is not None:
+            if self.publish_truth and body_to_world_T is not None and self.smocap.projected_markers_img is not None:
                 err_img_points = np.mean(np.linalg.norm(self.smocap.projected_markers_img - self.smocap.detected_kp_img[self.smocap.kp_of_marker], axis=1))
                 #print('err projected img points {:.1f} pixel'.format(err_img_points))
             if self.smocap.keypoints_identified():
@@ -127,8 +140,8 @@ class SMoCapNode:
      
         #print
 
-        if self.publish_thruth: self.do_publish_thruth()
-        if self.publish_est: self.do_publish_est()
+        if self.publish_truth: self.do_publish_truth()
+        if self.publish_est and self.smocap.cam_to_body_T is not None: self.do_publish_est()
         
         if self.show_gui or self.publish_image:
             debug_image = self.draw_debug_image(cv_image)
@@ -146,7 +159,7 @@ class SMoCapNode:
 
                 
 def main(args):
-  rospy.init_node('smocap_node', anonymous=True)
+  rospy.init_node('smocap_node')#, anonymous=True)
   sn = SMoCapNode()
   try:
     rospy.spin()

@@ -11,6 +11,20 @@ def T_of_quat_t(quat, t):
     T[:3,3] = t#-np.dot(T[:3,:3].T, t)
     return T
 
+def T_of_t_q(t, q):
+    T = tf.transformations.quaternion_matrix(q)
+    T[:3,3] = t#-np.dot(T[:3,:3].T, t)
+    return T
+
+def T_of_tq_foo(t, q):
+    #q1 = [-q[0], -q[1], -q[2], q[3]]
+    T = tf.transformations.quaternion_matrix(q)
+    T[:3,3] = t#-np.dot(T[:3,:3].T, t)
+    return T
+
+def tq_of_T(T):
+    return T[:3, 3], tf.transformations.quaternion_from_matrix(T)
+
 def list_of_position(p): return (p.x, p.y, p.z)
 def list_of_orientation(q): return (q.x, q.y, q.z, q.w)
 
@@ -57,8 +71,10 @@ class TfListener:
 
 
     def get(self, _from, _to):
+        #from: http://wiki.ros.org/tf/TfUsingPython
+        # lookupTransform(target_frame, source_frame, time) 
         #try:
-        (_t, _q) = self.tfl.lookupTransform(_from, _to, rospy.Time(0))
+        (_t, _q) = self.tfl.lookupTransform(_to, _from, rospy.Time(0))
             #print('{}_to_{} {} {}'.format(_from, _to, _t, _q))
         #except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
         #    _t, _q = None, None

@@ -10,7 +10,10 @@ def round_pt(p): return (int(p[0]), int(p[1]))
 
 class SMoCap:
 
-    def __init__(self):
+    def __init__(self, detect_rgb, min_area=2):
+        print('detect rgb {}'.format( detect_rgb))
+        print('min area {}'.format( min_area))
+        self.detect_rgb = detect_rgb
         self.lower_red_hue_range = np.array([0,  100,100]), np.array([10,255,255]) 
         self.upper_red_hue_range = np.array([160,100,100]), np.array([179,255,255])
         params = cv2.SimpleBlobDetector_Params()
@@ -19,7 +22,7 @@ class SMoCap:
         params.maxThreshold = 256;
         # Filter by Area.
         params.filterByArea = True
-        params.minArea = 2
+        params.minArea = min_area#16 #2
         # Filter by Circularity
         params.filterByCircularity = True
         params.minCircularity = 0.1
@@ -35,17 +38,26 @@ class SMoCap:
         self.markers_names = ['c', 'l', 'r', 'f']
         self.marker_c, self.marker_l, self.marker_r, self.marker_f = range(4)
         self.world_to_cam_T, self.world_to_cam_t, self.world_to_cam_q, self.world_to_cam_r = None, None, None, None
+        self.cam_to_body_T = None
         self.irm_to_body_T = np.eye(4)
         self.irm_to_body_T[2,3] = 0.15
+        self.projected_markers_img = None
         
-        self.K = np.array([[476.7030836014194, 0.0, 400.5],
-                           [0.0, 476.7030836014194, 400.5],
-                           [0.0, 0.0, 1.0]])
-        self.D = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
-        self.invK =  np.linalg.inv(self.K)
-        
+        self.K, self.D, self.invK = None, None, None
+        #np.array([[476.7030836014194, 0.0, 400.5],
+        #                   [0.0, 476.7030836014194, 400.5],
+        #                   [0.0, 0.0, 1.0]])
+        #self.D = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+        #self.invK =  np.linalg.inv(self.K)
 
 
+    def set_camera_calibration(self, K, D):
+        print('setting camera calibration to {} {}'.format(K, D))
+        self.K = K
+        self.D = D
+        self.invK = np.linalg.inv(self.K)
+        
+        
     def set_world_to_cam(self, world_to_camo_t, world_to_camo_q):
         print('setting world_to_cam {} {}'.format(world_to_camo_t, world_to_camo_q))
         self.world_to_cam_t, self.world_to_cam_q = world_to_camo_t, world_to_camo_q 
@@ -53,7 +65,7 @@ class SMoCap:
         self.world_to_cam_r, foo = cv2.Rodrigues(self.world_to_cam_T[:3,:3])
 
     def detect_keypoints(self, img):
-        if 0:
+        if self.detect_rgb:
             hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
             mask1 = cv2.inRange(hsv, *self.lower_red_hue_range)
             #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
@@ -68,7 +80,7 @@ class SMoCap:
         return len(self.detected_kp_img) == 4
 
     def keypoints_identified(self):
-        return False
+        return True
      
     
     def identify_keypoints(self):
@@ -121,20 +133,23 @@ class SMoCap:
         #pdb.set_trace()
 
     def track(self):
+        if self.invK is None: return
         # this is a dumb tracking to use as baseline
         m_c_i = self.detected_kp_img[self.kp_of_marker[self.marker_c]]
         m_f_i = self.detected_kp_img[self.kp_of_marker[self.marker_f]]
         cf_i = m_f_i - m_c_i
         yaw = math.atan2(cf_i[1], cf_i[0])
-        self.cam_to_irm_T = tf.transformations.euler_matrix(math.pi, 0, yaw, 'sxyz')#np.eye(4)
+        self.cam_to_irm_T = tf.transformations.euler_matrix(math.pi, 0, yaw, 'sxyz')
         m_c_c = np.dot(self.invK, utils.to_homo(m_c_i))
-        self.cam_to_irm_T[:3,3] = m_c_c*1.35
+        self.cam_to_irm_T[:3,3] = m_c_c*(self.world_to_cam_t[2]-0.15) #m_c_c*1.35
         self.cam_to_body_T = np.dot(self.irm_to_body_T, self.cam_to_irm_T)
-        self.world_to_irm_T = np.dot(self.cam_to_irm_T, self.world_to_cam_T)
+        if self.world_to_cam_T is not None:
+            self.world_to_irm_T = np.dot(self.cam_to_irm_T, self.world_to_cam_T)
 
         
 
     def project(self, body_to_world_T):
+        if self.K is None: return
         self.markers_world = np.array([np.dot(body_to_world_T, m_b) for m_b in self.markers_body])
         self.projected_markers_img = cv2.projectPoints(np.array([self.markers_world[:,:3]]),
                                                        self.world_to_cam_r, np.array(self.world_to_cam_t), self.K, self.D)[0].squeeze()    
