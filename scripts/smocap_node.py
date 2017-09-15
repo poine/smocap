@@ -35,6 +35,7 @@ class SMoCapNode:
 
         if self.publish_est:
             self.est_pub = rospy.Publisher('/smocap/est', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
+            self.est_pub2 = rospy.Publisher('/smocap/est2', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
             
         self.tfl = utils.TfListener()
 
@@ -79,10 +80,20 @@ class SMoCapNode:
 
     def do_publish_est(self):
         msg = geometry_msgs.msg.PoseWithCovarianceStamped()
-        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.cam_to_body_T)
-        msg.header.frame_id = "/camera_optical_frame"#"/world"
+        msg.header.frame_id = "camera_optical_frame"#"/world"
         msg.header.stamp = self.last_frame_time#rospy.Time.now()
+        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.cam_to_body_T)
+        #std_xy, std_z, std_rxy, std_rz = 0.05, 0.01, 0.5, 0.05
+        std_xy, std_z, std_rxy, std_rz = 0.1, 0.01, 0.5, 0.1
+        msg.pose.covariance[0]  = msg.pose.covariance[7] = std_xy**2
+        msg.pose.covariance[14] = std_z**2
+        msg.pose.covariance[21] = msg.pose.covariance[28] = std_rxy**2
+        msg.pose.covariance[35] = std_rz**2
         self.est_pub.publish(msg)
+        msg.header.frame_id = "/world"
+        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.world_to_body_T)
+        self.est_pub2.publish(msg)
+        
         
     def img_callback(self, msg):
         print msg.header

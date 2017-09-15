@@ -116,7 +116,7 @@ class FilterNode:
             #print_T('my w_to_irm_T (is really irm_to_w)', world_to_marker_T)
             ### ca c'est odom to world
             world_to_odom_T = np.dot(world_to_marker_T, np.linalg.inv(bl_to_odom_T))
-            print_T('world_to_odom_T', world_to_odom_T)
+            #print_T('world_to_odom_T', world_to_odom_T)
                 
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             print "bl_to_odom_t tf failure"

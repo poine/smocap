@@ -38,17 +38,12 @@ class SMoCap:
         self.markers_names = ['c', 'l', 'r', 'f']
         self.marker_c, self.marker_l, self.marker_r, self.marker_f = range(4)
         self.world_to_cam_T, self.world_to_cam_t, self.world_to_cam_q, self.world_to_cam_r = None, None, None, None
-        self.cam_to_body_T = None
+        self.cam_to_body_T, self.world_to_body_T = None, None
         self.irm_to_body_T = np.eye(4)
         self.irm_to_body_T[2,3] = 0.15
         self.projected_markers_img = None
         
         self.K, self.D, self.invK = None, None, None
-        #np.array([[476.7030836014194, 0.0, 400.5],
-        #                   [0.0, 476.7030836014194, 400.5],
-        #                   [0.0, 0.0, 1.0]])
-        #self.D = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
-        #self.invK =  np.linalg.inv(self.K)
 
 
     def set_camera_calibration(self, K, D):
@@ -144,7 +139,7 @@ class SMoCap:
         self.cam_to_irm_T[:3,3] = m_c_c*(self.world_to_cam_t[2]-0.15) #m_c_c*1.35
         self.cam_to_body_T = np.dot(self.irm_to_body_T, self.cam_to_irm_T)
         if self.world_to_cam_T is not None:
-            self.world_to_irm_T = np.dot(self.cam_to_irm_T, self.world_to_cam_T)
+            self.world_to_body_T = np.dot(self.world_to_cam_T, self.cam_to_body_T)
 
         
 
