@@ -34,8 +34,8 @@ class SMoCapNode:
             self.thl = utils.TruthListener()
 
         if self.publish_est:
-            self.est_pub = rospy.Publisher('/smocap/est', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
-            self.est_pub2 = rospy.Publisher('/smocap/est2', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
+            self.est_cam_pub = rospy.Publisher('/smocap/est_cam', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
+            self.est_world_pub = rospy.Publisher('/smocap/est_world', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
             
         self.tfl = utils.TfListener()
 
@@ -74,7 +74,7 @@ class SMoCapNode:
     def do_publish_truth(self):
         msg = geometry_msgs.msg.PoseStamped()
         msg.pose = self.thl.pose
-        msg.header.frame_id = "/world"
+        msg.header.frame_id = "world"
         msg.header.stamp = rospy.Time.now()
         self.truth_pub.publish(msg)
 
@@ -89,10 +89,10 @@ class SMoCapNode:
         msg.pose.covariance[14] = std_z**2
         msg.pose.covariance[21] = msg.pose.covariance[28] = std_rxy**2
         msg.pose.covariance[35] = std_rz**2
-        self.est_pub.publish(msg)
-        msg.header.frame_id = "/world"
+        self.est_cam_pub.publish(msg)
+        msg.header.frame_id = "world"
         utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.world_to_body_T)
-        self.est_pub2.publish(msg)
+        self.est_world_pub.publish(msg)
         
         
     def img_callback(self, msg):

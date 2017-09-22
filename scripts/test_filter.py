@@ -21,8 +21,8 @@ class FilterNode:
         self.camol_to_bl_T = None
         self.w_to_camol_T = None  # constant
         self.foo_pub = rospy.Publisher('/foo/est', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
-        self.bar_pub = rospy.Publisher('/bat/est', geometry_msgs.msg.PoseStamped, queue_size=1)
-        rospy.Subscriber('/smocap/est', geometry_msgs.msg.PoseWithCovarianceStamped, self.smocap_cbk)
+        self.bar_pub = rospy.Publisher('/bar/est', geometry_msgs.msg.PoseStamped, queue_size=1)
+        rospy.Subscriber('/smocap/est_cam', geometry_msgs.msg.PoseWithCovarianceStamped, self.smocap_cbk)
          
     def run(self):
         rate = rospy.Rate(20.)
@@ -75,7 +75,7 @@ class FilterNode:
             print 'in smocap callback: world to camera_optical_frame tf failed'
 
         world_to_odom_T = self.compute_world_to_odom(self.w_to_irm_T, self.last_frame_time)
-        self.filter(world_to_odom_T)
+        #self.filter(world_to_odom_T)
             
 
     def filter(self, world_to_odom_measure_T):
@@ -136,7 +136,7 @@ class FilterNode:
                 print('computed w_to_odom_align\n{}'.format(self.w_to_odom_align_T))
             
         if False and self.w_to_odom_align_T is not None:
-            if 0:
+            if 1:
                 world_to_odom_t, world_to_odom_q = [1.85, 0.38, 0], tf.transformations.quaternion_from_euler(0, 0, 0.59) #[0, 0, 0, 1]
             else:
                 #print('w_to_odom_align_T {}'.format(self.w_to_odom_align_T))
