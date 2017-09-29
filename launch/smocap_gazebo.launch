@@ -1,4 +1,8 @@
 <?xml version="1.0"?>
+<!--
+ Loads the ceiling-fixed camera in gazebo
+ and starts the motion capture node
+-->
 <launch>
 
   <!-- loads URDF description -->
@@ -17,7 +21,7 @@
 
  <node pkg="tf" type="static_transform_publisher" name="world_to_map_publisher" args="0 0 0 0 0 0 /world /map 100"/>
  <!-- <node pkg="tf" type="static_transform_publisher" name="odom_to_world_publisher" args="-0.5 -0.5 0 0 0 0 /odom /world 100"/> -->
-  <!--<node name="smocap_filter" pkg="smocap" type="test_filter.py"/> -->
+ <!--<node name="smocap_filter" pkg="smocap" type="test_filter.py"/> -->
 
  
   <!-- debug marker
