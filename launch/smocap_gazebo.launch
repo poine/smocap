@@ -35,7 +35,7 @@
   <node name="smocap_node" pkg="smocap" type="smocap_node.py">
     <param name="show_gui"       type="bool" value="false" />
     <param name="publish_image"  type="bool" value="true"  />
-    <param name="publish_truth"  type="bool" value="true"  />
+    <param name="publish_truth"  type="bool" value="false"  />
     <param name="publish_est"    type="bool" value="true"  />
     <param name="camera"         type="string" value="/smocap/camera"/>
     <param name="detect_rgb"     type="bool"   value="true"  />
