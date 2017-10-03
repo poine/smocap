@@ -63,7 +63,7 @@ class SMoCapNode:
                 cv2.circle(img_with_keypoints, loc, 5, (0,255,0), 1)
                 cv2.putText(img_with_keypoints, self.smocap.markers_names[i], loc, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1) 
 
-        txt = '{:5.1f} fps, {} detected, '.format(self.fps, len(self.smocap.keypoints))
+        txt = '{:5.1f} fps, {} detected, (d:{:.0f} ms)'.format(self.fps, len(self.smocap.keypoints), self.smocap.marker.detection_duration*1e3)
         h, w, d = img.shape    
         loc = (10, h-20)
         cv2.putText(img_with_keypoints, txt, loc, cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 2) 
@@ -134,7 +134,11 @@ class SMoCapNode:
         #print('projected image points\n{}'.format(img_points.squeeze()))
         #print('projected image points\n{}'.format(self.smocap.projected_markers_img.squeeze()))
         
-        self.smocap.detect_keypoints(cv_image)
+        if 1:
+            self.smocap.detect_keypoints(cv_image)
+        else:
+            u0, v0, du, dv = 700, 700, 100, 100
+            self.smocap.detect_keypoints(cv_image[u0:u0+du, v0:v0+dv])
         #print('detected img points\n{}'.format(self.smocap.detected_kp_img))
         if self.smocap.keypoints_detected():
             self.smocap.identify_keypoints()
@@ -170,7 +174,7 @@ class SMoCapNode:
 
                 
 def main(args):
-  rospy.init_node('smocap_node')#, anonymous=True)
+  rospy.init_node('smocap_node')
   sn = SMoCapNode()
   try:
     rospy.spin()
