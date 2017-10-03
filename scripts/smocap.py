@@ -1,12 +1,19 @@
 #!/usr/bin/env python
 
-import logging, os
+import logging, os, timeit
 import math, numpy as np, cv2, tf.transformations
 
 import utils
 import pdb
 
 def round_pt(p): return (int(p[0]), int(p[1]))
+
+
+class Marker:
+    def __init__(self):
+        self.roi = None                # region of interest in wish to look for the maker
+        self.detection_duration = 0.   #
+        self.centroid_img = None       # 
 
 class SMoCap:
 
@@ -34,6 +41,8 @@ class SMoCap:
         params.minInertiaRatio = 0.5
         self.detector = cv2.SimpleBlobDetector_create(params)
 
+        self.marker = Marker()
+        
         self.markers_body = np.array([[0, 0, 0.155, 1.], [0, 0.045, 0.155, 1.], [0, -0.045, 0.155, 1.], [0.04, 0., 0.155, 1.]])
         self.markers_names = ['c', 'l', 'r', 'f']
         self.marker_c, self.marker_l, self.marker_r, self.marker_f = range(4)
@@ -52,7 +61,6 @@ class SMoCap:
         self.D = D
         self.invK = np.linalg.inv(self.K)
         
-        
     def set_world_to_cam(self, world_to_camo_t, world_to_camo_q):
         print('setting world_to_cam {} {}'.format(world_to_camo_t, world_to_camo_q))
         self.world_to_cam_t, self.world_to_cam_q = world_to_camo_t, world_to_camo_q 
@@ -60,6 +68,7 @@ class SMoCap:
         self.world_to_cam_r, foo = cv2.Rodrigues(self.world_to_cam_T[:3,:3])
 
     def detect_keypoints(self, img):
+        _start = timeit.default_timer()
         if self.detect_rgb:
             hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
             mask1 = cv2.inRange(hsv, *self.lower_red_hue_range)
@@ -69,6 +78,8 @@ class SMoCap:
             self.keypoints = self.detector.detect(255-img)
         #print('detected img points\n{}'.format(np.array([kp.pt for kp in keypoints])))
         self.detected_kp_img = np.array([kp.pt for kp in self.keypoints])
+        _end = timeit.default_timer()
+        self.marker.detection_duration = _end - _start
         return self.keypoints
 
     def keypoints_detected(self):
@@ -110,7 +121,8 @@ class SMoCap:
             self.marker_of_kp[sorted_idx[3]] = self.marker_r
         self.kp_of_marker = np.argsort(self.marker_of_kp)
         #print self.marker_of_kp
-
+        # for now just use center point
+        self.marker.centroid_img = self.detected_kp_img[self.kp_of_marker[self.marker_c]]
 
         
     def track_foo(self):

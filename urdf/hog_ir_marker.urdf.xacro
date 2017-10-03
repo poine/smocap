@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<robot name="smocap_marker" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Marker macros -->
+  <xacro:include filename="$(find smocap)/urdf/ir_marker.urdf.xacro" />
+
+  <gazebo>
+    <plugin name="hand_of_god" filename="libgazebo_ros_hand_of_god.so">
+      <linkName>irm_link</linkName>
+      <kl>0.005</kl>
+      <ka>0.001</ka>
+      <frameId>irm_link</frameId>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
+    <plugin name="ground_truth" filename="libgazebo_ros_p3d.so">
+      <frameName>world</frameName>
+      <bodyName>irm_link</bodyName>
+      <topicName>smocap/marker_truth</topicName>
+      <updateRate>30.0</updateRate>
+    </plugin>
+  </gazebo>
+
+  <!-- this is cool, but not what i want. I can control velocity -->
+  <!--
+  <gazebo>
+    <plugin name="object_controller" filename="libgazebo_ros_planar_move.so">
+      <commandTopic>cmd_vel</commandTopic>
+      <odometryTopic>odom</odometryTopic>
+      <odometryFrame>odom</odometryFrame>
+      <odometryRate>20.0</odometryRate>
+      <robotBaseFrame>irm_link</robotBaseFrame>
+    </plugin>
+  </gazebo>
+  -->
+  
+
+</robot>
