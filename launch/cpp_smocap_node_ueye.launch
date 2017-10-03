@@ -13,6 +13,8 @@
     <param name="camera"          type="string" value="ueye_enac_ceiling_1"/>
     <param name="detect_rgb"      type="bool"   value="false"  />
     <param name="detect_min_area" type="int"    value="24"    />
+
+    <remap from="/camera/image_raw" to="/ueye_enac_ceiling_1/image_raw" />
   </node>
 
   <node pkg="tf" type="static_transform_publisher" name="world_to_cam_link_publisher"

@@ -48,7 +48,6 @@ class SMoCapNode:
 
 
     def cam_info_callback(self, msg):
-        print msg.K, msg.D
         self.camera_info_sub.unregister()
         self.camera_info_sub = None
         self.smocap.set_camera_calibration(np.array(msg.K).reshape(3,3), np.array(msg.D))
@@ -64,7 +63,7 @@ class SMoCapNode:
                 cv2.putText(img_with_keypoints, self.smocap.markers_names[i], loc, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1) 
 
         txt = '{:5.1f} fps, {} detected, (d:{:.0f} ms)'.format(self.fps, len(self.smocap.keypoints), self.smocap.marker.detection_duration*1e3)
-        h, w, d = img.shape    
+        h, w, d = img_with_keypoints.shape    
         loc = (10, h-20)
         cv2.putText(img_with_keypoints, txt, loc, cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 2) 
             
@@ -96,18 +95,18 @@ class SMoCapNode:
         
         
     def img_callback(self, msg):
-        print msg.header
         if self.last_frame_time is not None:
             self.processing_duration = msg.header.stamp - self.last_frame_time
             self.fps = self.fps_lp*self.fps + (1-self.fps_lp)/self.processing_duration.to_sec()
         self.last_frame_time = msg.header.stamp
             
         try:
-            cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            #cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            cv_image = self.bridge.imgmsg_to_cv2(msg, "mono8")
         except cv_bridge.CvBridgeError as e:
             print(e)
 
-        if self.smocap.world_to_cam_T is None:
+        if self.smocap.camera.world_to_cam_T is None:
             try:
                 world_to_camo_t, world_to_camo_q = self.tfl.get('/world', '/camera_optical_frame')
                 self.smocap.set_world_to_cam(world_to_camo_t, world_to_camo_q)

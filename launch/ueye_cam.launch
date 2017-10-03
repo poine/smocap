@@ -56,9 +56,9 @@
     <!-- <param name="flash_duration" type="int" value="1000" />--> <!-- in us -->
     
     <!-- <param name="auto_frame_rate" type="bool" value="False" />-->
-    <param name="frame_rate" type="double" value="30.0" />
+    <param name="frame_rate" type="double" value="60.0" /> <!-- 30 -->
      <!--<param name="output_rate" type="double" value="0.0" /> --><!-- >0: throttle rate for publishing frames -->
-     <param name="pixel_clock" type="int" value="70" />
+     <param name="pixel_clock" type="int" value="128" /> <!-- 70 -->
 
     <!-- <param name="flip_upd" type="bool" value="False" />-->
     <!-- <param name="flip_lr"  type="bool" value="False" />-->
