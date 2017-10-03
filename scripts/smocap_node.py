@@ -40,7 +40,7 @@ class SMoCapNode:
         self.tfl = utils.TfListener()
 
         self.bridge = cv_bridge.CvBridge()
-        self.image_sub = rospy.Subscriber(camera+'/image_raw', sensor_msgs.msg.Image, self.img_callback)
+        self.image_sub = rospy.Subscriber(camera+'/image_raw', sensor_msgs.msg.Image, self.img_callback, queue_size=1)
         self.camera_info_sub = rospy.Subscriber(camera+'/camera_info', sensor_msgs.msg.CameraInfo, self.cam_info_callback)
         
 
