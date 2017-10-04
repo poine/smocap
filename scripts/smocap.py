@@ -25,8 +25,8 @@ class Camera:
         # world to camera transform
         self.world_to_cam_T, self.world_to_cam_t, self.world_to_cam_q, self.world_to_cam_r = None, None, None, None
     
-    def set_calibration(self, K, D):
-        self.K, self.D = K, D
+    def set_calibration(self, K, D, w, h):
+        self.K, self.D, self.w, self.h = K, D, w, h
         self.invK = np.linalg.inv(self.K)
 
     def set_location(self,  world_to_camo_t, world_to_camo_q):
@@ -78,9 +78,9 @@ class SMoCap:
         self.projected_markers_img = None
 
 
-    def set_camera_calibration(self, K, D):
-        LOG.info('setting camera calibration to {} {}'.format(K, D))
-        self.camera.set_calibration(K, D)
+    def set_camera_calibration(self, K, D, w, h):
+        LOG.info('setting camera calibration to {} {} {} {}'.format(K, D, w, h))
+        self.camera.set_calibration(K, D, w, h)
         
     def set_world_to_cam(self, world_to_camo_t, world_to_camo_q):
         LOG.info('setting world_to_cam {} {}'.format(world_to_camo_t, world_to_camo_q))
@@ -89,7 +89,13 @@ class SMoCap:
     def detect_keypoints(self, img):
         _start = timeit.default_timer()
         if self.marker.roi is not None:
-            self.keypoints = self.detector.detect(255-img[self.marker.roi])
+            if self.detect_rgb:
+                hsv = cv2.cvtColor(img[self.marker.roi], cv2.COLOR_BGR2HSV)
+                mask1 = cv2.inRange(hsv, *self.lower_red_hue_range)
+                #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
+                self.keypoints = self.detector.detect(255-mask1)
+            else:
+                self.keypoints = self.detector.detect(255-img[self.marker.roi])
             self.detected_kp_img = np.array([kp.pt for kp in self.keypoints])
             self.detected_kp_img += [self.marker.roi[1].start, self.marker.roi[0].start]
         else:
@@ -152,8 +158,8 @@ class SMoCap:
         # for now just use center point
         self.marker.centroid_img = self.detected_kp_img[self.kp_of_marker[self.marker_c]]
         w = 75
-        x1, x2 = int(max(self.marker.centroid_img[0]-w, 0)), int(min(self.marker.centroid_img[0]+w, 1600))
-        y1, y2 = int(max(self.marker.centroid_img[1]-w, 0)), int(min(self.marker.centroid_img[1]+w, 1200))
+        x1, x2 = int(max(self.marker.centroid_img[0]-w, 0)), int(min(self.marker.centroid_img[0]+w, self.camera.w))
+        y1, y2 = int(max(self.marker.centroid_img[1]-w, 0)), int(min(self.marker.centroid_img[1]+w, self.camera.h))
         self.marker.roi = slice(y1, y2), slice(x1, x2)
 
         
@@ -197,8 +203,10 @@ class SMoCap:
 
 
     def draw_debug_on_image(self, img, draw_kp_id=True, draw_roi=True):
-
-        debug_img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) # make a copy of image, insuring it is a color one
+        if self.detect_rgb:
+            debug_img = img
+        else:
+            debug_img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) # make a copy of image, insuring it is a color one
 
         cv2.drawKeypoints(img, self.keypoints, debug_img[self.marker.roi], (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 

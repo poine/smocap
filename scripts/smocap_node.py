@@ -17,14 +17,14 @@ class SMoCapNode:
         self.publish_truth = rospy.get_param('~publish_truth', True)
         self.publish_est =   rospy.get_param('~publish_est', True)
         camera = rospy.get_param('~camera', '/camera')
-        detect_rgb = rospy.get_param('~detect_rgb', False)
+        self.detect_rgb = rospy.get_param('~detect_rgb', False)
         detect_min_area = rospy.get_param('~detect_min_area', 2)
 
         self.last_frame_time = None
         self.processing_duration = None
         self.fps, self.fps_lp = 0., 0.95
 
-        self.smocap = smocap.SMoCap(detect_rgb, detect_min_area)
+        self.smocap = smocap.SMoCap(self.detect_rgb, detect_min_area)
 
         if self.publish_image:
             self.image_pub = rospy.Publisher("/smocap/image_debug", sensor_msgs.msg.Image, queue_size=1)
@@ -50,7 +50,7 @@ class SMoCapNode:
     def cam_info_callback(self, msg):
         self.camera_info_sub.unregister()
         self.camera_info_sub = None
-        self.smocap.set_camera_calibration(np.array(msg.K).reshape(3,3), np.array(msg.D))
+        self.smocap.set_camera_calibration(np.array(msg.K).reshape(3,3), np.array(msg.D), msg.width, msg.height)
         
     def draw_debug_image(self, img, draw_true_markers=False):
         img_with_keypoints = self.smocap.draw_debug_on_image(img)
@@ -101,8 +101,7 @@ class SMoCapNode:
         self.last_frame_time = msg.header.stamp
             
         try:
-            #cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-            cv_image = self.bridge.imgmsg_to_cv2(msg, "mono8")
+            cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8" if self.detect_rgb else "mono8")
         except cv_bridge.CvBridgeError as e:
             print(e)
 
@@ -133,11 +132,7 @@ class SMoCapNode:
         #print('projected image points\n{}'.format(img_points.squeeze()))
         #print('projected image points\n{}'.format(self.smocap.projected_markers_img.squeeze()))
         
-        if 1:
-            self.smocap.detect_keypoints(cv_image)
-        else:
-            u0, v0, du, dv = 700, 700, 100, 100
-            self.smocap.detect_keypoints(cv_image[u0:u0+du, v0:v0+dv])
+        self.smocap.detect_keypoints(cv_image)
         #print('detected img points\n{}'.format(self.smocap.detected_kp_img))
         if self.smocap.keypoints_detected():
             self.smocap.identify_keypoints()
@@ -152,7 +147,7 @@ class SMoCapNode:
         
         
      
-        #print
+        print
 
         if self.publish_truth: self.do_publish_truth()
         if self.publish_est and self.smocap.cam_to_body_T is not None: self.do_publish_est()
