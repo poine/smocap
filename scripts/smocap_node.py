@@ -12,9 +12,7 @@ def round_pt(p): return (int(p[0]), int(p[1]))
 class SMoCapNode:
 
     def __init__(self):
-        self.show_gui =      rospy.get_param('~show_gui', False)
         self.publish_image = rospy.get_param('~publish_image', True)
-        self.publish_truth = rospy.get_param('~publish_truth', True)
         self.publish_est =   rospy.get_param('~publish_est', True)
         camera = rospy.get_param('~camera', '/camera')
         self.detect_rgb = rospy.get_param('~detect_rgb', False)
@@ -29,10 +27,6 @@ class SMoCapNode:
         if self.publish_image:
             self.image_pub = rospy.Publisher("/smocap/image_debug", sensor_msgs.msg.Image, queue_size=1)
 
-        if self.publish_truth:
-            self.truth_pub = rospy.Publisher('/smocap/truth', geometry_msgs.msg.PoseStamped, queue_size=1)
-            self.thl = utils.TruthListener()
-
         if self.publish_est:
             self.est_cam_pub = rospy.Publisher('/smocap/est_cam', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
             self.est_world_pub = rospy.Publisher('/smocap/est_world', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
@@ -42,9 +36,6 @@ class SMoCapNode:
         self.bridge = cv_bridge.CvBridge()
         self.image_sub = rospy.Subscriber(camera+'/image_raw', sensor_msgs.msg.Image, self.img_callback, queue_size=1)
         self.camera_info_sub = rospy.Subscriber(camera+'/camera_info', sensor_msgs.msg.CameraInfo, self.cam_info_callback)
-        
-
-            
 
 
     def cam_info_callback(self, msg):
@@ -70,16 +61,9 @@ class SMoCapNode:
         return img_with_keypoints
 
 
-    def do_publish_truth(self):
-        msg = geometry_msgs.msg.PoseStamped()
-        msg.pose = self.thl.pose
-        msg.header.frame_id = "world"
-        msg.header.stamp = rospy.Time.now()
-        self.truth_pub.publish(msg)
-
     def do_publish_est(self):
         msg = geometry_msgs.msg.PoseWithCovarianceStamped()
-        msg.header.frame_id = "camera_optical_frame"#"/world"
+        msg.header.frame_id = "camera_optical_frame"
         msg.header.stamp = self.last_frame_time#rospy.Time.now()
         utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.cam_to_body_T)
         #std_xy, std_z, std_rxy, std_rz = 0.05, 0.01, 0.5, 0.05
@@ -118,15 +102,6 @@ class SMoCapNode:
         #body_to_world_t, body_to_world_q = self.tfl.get('/world', '/base_link')#self.tfl.get('/base_link', '/world')
         #body_to_world_T = utils.T_of_quat_t(body_to_world_q, body_to_world_t)
         #print('body_to_world tf\n{}'.format(body_to_world_T))
-        if self.publish_truth:
-            body_to_world_T = self.thl.get_body_to_world_T()
-            #print('body_to_world gz\n{}'.format(self.thl.get_body_to_world_T()))
-            if body_to_world_T is not None:
-                self.smocap.project(body_to_world_T)
-                #print('markers world 2\n{}'.format(self.smocap.markers_world))
-                #markers_world_err = self.smocap.markers_world[:,:3] - markers_world
-                #print('markers world err\n{}'.format(np.linalg.norm(markers_world_err, axis=1)))
-        
 
         #img_points = cv2.projectPoints(markers_world, self.smocap.world_to_cam_r, np.array(self.smocap.world_to_cam_t), self.smocap.K, self.smocap.D)[0]
         #print('projected image points\n{}'.format(img_points.squeeze()))
@@ -139,26 +114,14 @@ class SMoCapNode:
             #print('identified img points\n{}'.format(self.smocap.detected_kp_img[self.smocap.kp_of_marker]))
             #self.smocap.detected_kp_img[self.smocap.kp_of_marker[self.smocap.marker_c]]
             #pdb.set_trace()
-            if self.publish_truth and body_to_world_T is not None and self.smocap.projected_markers_img is not None:
-                err_img_points = np.mean(np.linalg.norm(self.smocap.projected_markers_img - self.smocap.detected_kp_img[self.smocap.kp_of_marker], axis=1))
-                #print('err projected img points {:.1f} pixel'.format(err_img_points))
             if self.smocap.keypoints_identified():
                 self.smocap.track()
         
         
-     
-        print
-
-        if self.publish_truth: self.do_publish_truth()
         if self.publish_est and self.smocap.cam_to_body_T is not None: self.do_publish_est()
         
-        if self.show_gui or self.publish_image:
-            debug_image = self.draw_debug_image(cv_image)
-        if self.show_gui:
-            cv2.imshow("Image window", debug_image)
-            cv2.waitKey(3)
-
         if self.publish_image:
+            debug_image = self.draw_debug_image(cv_image)
             try:
                 self.image_pub.publish(self.bridge.cv2_to_imgmsg(debug_image, "bgr8"))
             except cv_bridge.CvBridgeError as e:

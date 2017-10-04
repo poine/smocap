@@ -7,7 +7,7 @@
   <gazebo>
     <plugin name="hand_of_god" filename="libgazebo_ros_hand_of_god.so">
       <linkName>irm_link</linkName>
-      <kl>0.005</kl>
+      <kl>0.01</kl>
       <ka>0.001</ka>
       <frameId>irm_link</frameId>
     </plugin>

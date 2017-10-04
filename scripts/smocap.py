@@ -13,10 +13,15 @@ def round_pt(p): return (int(p[0]), int(p[1]))
 
 class Marker:
     def __init__(self):
-        self.roi = None                # region of interest in wish to look for the maker
-        self.detection_duration = 0.   # time used for blob detection
+        self.roi = None                # region of interest in wich to look for the marker
+        self.detection_duration = 0.   # duration of blob detection
         self.centroid_img = None       # coordinates of marker centroid in image frame
 
+
+    def set_roi(self, x_lu, y_lu, x_rd, y_rd):
+        self.roi = slice(y_lu, y_rd), slice(x_lu, x_rd)
+
+        
 
 class Camera:
     def __init__(self):
@@ -87,32 +92,32 @@ class SMoCap:
         self.camera.set_location(world_to_camo_t, world_to_camo_q)
 
     def detect_keypoints(self, img):
+        # if no Region Of Interest exists yet, set it to full image
+        if self.marker.roi is None:
+            self.marker.set_roi(0, 0, *img.shape[1::-1])
+        
         _start = timeit.default_timer()
-        if self.marker.roi is not None:
-            if self.detect_rgb:
-                hsv = cv2.cvtColor(img[self.marker.roi], cv2.COLOR_BGR2HSV)
-                mask1 = cv2.inRange(hsv, *self.lower_red_hue_range)
-                #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
-                self.keypoints = self.detector.detect(255-mask1)
-            else:
-                self.keypoints = self.detector.detect(255-img[self.marker.roi])
-            self.detected_kp_img = np.array([kp.pt for kp in self.keypoints])
-            self.detected_kp_img += [self.marker.roi[1].start, self.marker.roi[0].start]
+        if self.detect_rgb:
+            hsv = cv2.cvtColor(img[self.marker.roi], cv2.COLOR_BGR2HSV)
+            mask1 = cv2.inRange(hsv, *self.lower_red_hue_range)
+            #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
+            self.keypoints = self.detector.detect(255-mask1)
         else:
-            if self.detect_rgb:
-                hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-                mask1 = cv2.inRange(hsv, *self.lower_red_hue_range)
-                #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
-                self.keypoints = self.detector.detect(255-mask1)
-            else:
-                self.keypoints = self.detector.detect(255-img)
-            #print('detected img points\n{}'.format(np.array([kp.pt for kp in keypoints])))
-            self.detected_kp_img = np.array([kp.pt for kp in self.keypoints])
+            self.keypoints = self.detector.detect(255-img[self.marker.roi])
+
+        # compute keypoints coordinates in image frame
+        self.detected_kp_img = np.array([kp.pt for kp in self.keypoints])
+        if len(self.detected_kp_img) > 0:
+            self.detected_kp_img += [self.marker.roi[1].start, self.marker.roi[0].start]
         _end = timeit.default_timer()
+        # assume our detection was sucessfull is 4 keypoints were detected
         self._keypoints_detected = (len(self.detected_kp_img) == 4)
+
+        # if we did not detect 4 keypoints, reset ROI to full image
+        # that sucks as we can not draw anymore :(
         if not self._keypoints_detected:
-            y2, x2 = img.shape[:2]
-            self.marker.roi = slice(0, y2), slice(0, x2)
+           self.marker.set_roi(0, 0, *img.shape[1::-1])
+
         self.marker.detection_duration = _end - _start
         return self.keypoints
 

@@ -1,4 +1,4 @@
-import numpy as np, tf.transformations
+import rospy, numpy as np, tf.transformations
 import pdb
 
 def T_of_rpy_t(rpy, t):
@@ -34,35 +34,7 @@ def position_and_orientation_from_T(p, q, T):
 
 def to_homo(p): return np.array([p[0], p[1], 1.])
 
-    
-import rospy, gazebo_msgs.msg
-''' Subscribe to gazebo/model_states messages and store the robot pose and twist '''
-class TruthListener:
-    def __init__(self, model_name="rosmip"):
-        self.model_name, self.model_idx = model_name, None
-        rospy.Subscriber('/gazebo/model_states', gazebo_msgs.msg.ModelStates, self.callback)
-        self.pose, self.twist = None, None
-        self.body_to_world_T = None
-
-    def callback(self, msg):
-        if self.model_idx is None:
-            try:
-                self.model_idx = msg.name.index(self.model_name)
-            except:
-                rospy.logerr('model {} not found in gazebo {}'.format(self.model_name, msg.name))
-        if self.model_idx is not None:
-            self.pose, self.twist = msg.pose[self.model_idx], msg.twist[self.model_idx]
-            self.body_to_world_T = None
-
-
-    def get_body_to_world_T(self):
-        if self.pose is not None and self.body_to_world_T is None:
-            _t, _q = list_of_position(self.pose.position), list_of_orientation(self.pose.orientation)
-            #print('thruth listener base to world {} {}'.format(_t, _q))
-            self.body_to_world_T = T_of_quat_t(_q, _t, )
-            #pdb.set_trace()
-        return self.body_to_world_T
-            
+                
 import geometry_msgs.msg
 class TfListener:
 

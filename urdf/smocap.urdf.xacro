@@ -1,4 +1,7 @@
 <?xml version="1.0"?>
+
+<!-- This is a ceiling fixed camera -->
+
 <robot name="smocap" xmlns:xacro="http://www.ros.org/wiki/xacro">	
 
   <xacro:property name="PI" value="3.1415926535897931" />
@@ -88,13 +91,13 @@
       <camera name="head">
         <horizontal_fov>1.3962634</horizontal_fov>
         <image>
-          <width>800</width>
-          <height>800</height>
+          <width>1600</width>
+          <height>1200</height>
           <format>R8G8B8</format>
         </image>
         <clip>
           <near>0.02</near>
-          <far>300</far>
+          <far>10</far>
         </clip>
         <noise>
           <type>gaussian</type>

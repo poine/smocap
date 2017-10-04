@@ -17,5 +17,10 @@
   <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
 	args="-urdf -model marker -param marker_description" />
 
+  <!-- Launch marker remote control -->
+  <node name="smocap_marker_remote_control" pkg="smocap" type="hog_remote.py" />
+
+
+  
   
 </launch>
