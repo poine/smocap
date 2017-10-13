@@ -15,3 +15,5 @@ if __name__ == '__main__':
     smocap.identify_keypoints()
     smocap.track()
     print smocap.cam_to_irm_T # camera to marker transform
+    smocap.track_pnp()
+    print smocap.cam_to_irm_T # camera to marker transform

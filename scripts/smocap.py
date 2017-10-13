@@ -16,7 +16,10 @@ class Marker:
         self.roi = None                # region of interest in wich to look for the marker
         self.detection_duration = 0.   # duration of blob detection
         self.centroid_img = None       # coordinates of marker centroid in image frame
-
+        # keypoints names
+        self.kps_names = ['c', 'l', 'r', 'f']
+        # coordinates of keypoints in marker frame
+        self.kps_m = np.array([[0, 0, 0], [0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]])
 
     def set_roi(self, x_lu, y_lu, x_rd, y_rd):
         self.roi = slice(y_lu, y_rd), slice(x_lu, x_rd)
@@ -36,7 +39,7 @@ class Camera:
 
     def set_location(self,  world_to_camo_t, world_to_camo_q):
         self.world_to_cam_t, self.world_to_cam_q = world_to_camo_t, world_to_camo_q 
-        self.world_to_cam_T = utils.T_of_quat_t(world_to_camo_q, world_to_camo_t)
+        self.world_to_cam_T = utils.T_of_t_q(world_to_camo_t, world_to_camo_q)
         self.world_to_cam_r, _unused = cv2.Rodrigues(self.world_to_cam_T[:3,:3])
 
     def has_calibration(self): return self.K is not None
@@ -182,6 +185,16 @@ class SMoCap:
         t = _lambda*np.dot(invC, h3)
         #pdb.set_trace()
 
+    def track_pnp(self):
+        kps_img = self.detected_kp_img[self.kp_of_marker].reshape(4,1,2)
+        success, r_vec, t_vec = cv2.solvePnP(self.marker.kps_m, kps_img, self.camera.K, self.camera.D, flags=cv2.SOLVEPNP_EPNP)
+        irm_to_cam_T = utils.T_of_t_r(t_vec.squeeze(), r_vec) 
+        self.cam_to_irm_T = np.linalg.inv(irm_to_cam_T)
+        pdb.set_trace()
+
+
+        
+        
     def track(self):
         if not self.camera.has_calibration(): return
         # this is a dumb tracking to use as baseline

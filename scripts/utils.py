@@ -1,4 +1,4 @@
-import rospy, numpy as np, tf.transformations, yaml
+import rospy, numpy as np, tf.transformations, yaml, cv2
 import pdb
 
 # Load camera model
@@ -13,31 +13,29 @@ def load_camera_model(filename):
         print(' distortion\n{}'.format(dist_coeffs))
         return camera_matrix, dist_coeffs, w, h
 
-
-def T_of_rpy_t(rpy, t):
+# Transforms
+def T_of_t_rpy(t, rpy):
     T = tf.transformations.euler_matrix(rpy[0], rpy[1], rpy[2], 'sxyz')
-    T[:3,3] = t#-np.dot(T[:3,:3], t)
-    return T
-
-def T_of_quat_t(quat, t):
-    T = tf.transformations.quaternion_matrix(quat)
-    T[:3,3] = t#-np.dot(T[:3,:3].T, t)
+    T[:3,3] = t
     return T
 
 def T_of_t_q(t, q):
     T = tf.transformations.quaternion_matrix(q)
-    T[:3,3] = t#-np.dot(T[:3,:3].T, t)
+    T[:3,3] = t
     return T
 
-def T_of_tq_foo(t, q):
-    #q1 = [-q[0], -q[1], -q[2], q[3]]
-    T = tf.transformations.quaternion_matrix(q)
-    T[:3,3] = t#-np.dot(T[:3,:3].T, t)
+def T_of_t_R(t, R):
+    T = np.eye(4); T[:3,:3] = R; T[:3,3] = t
     return T
+
+def T_of_t_r(t, r):
+    R, _ = cv2.Rodrigues(r)
+    return T_of_t_R(t, R)
 
 def tq_of_T(T):
     return T[:3, 3], tf.transformations.quaternion_from_matrix(T)
 
+# TF messages
 def list_of_position(p): return (p.x, p.y, p.z)
 def list_of_orientation(q): return (q.x, q.y, q.z, q.w)
 
