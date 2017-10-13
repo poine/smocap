@@ -1,0 +1,20 @@
+image_width: 1600
+image_height: 1200
+camera_name: camera_gazebo_smocap
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [953.4061672028388, 0.0, 800.5, 0.0, 953.4061672028388, 600.5, 0.0, 0.0, 1.0]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0., 0., 0., 0., 0.]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [953.4061672028388, 0.0, 800.5, -66.73843170419872, 0.0, 953.4061672028388, 600.5, 0.0, 0.0, 0.0, 1.0, 0.0]

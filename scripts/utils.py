@@ -1,5 +1,18 @@
-import rospy, numpy as np, tf.transformations
+import rospy, numpy as np, tf.transformations, yaml
 import pdb
+
+# Load camera model
+def load_camera_model(filename):
+    with open(filename) as f:
+        _dict = yaml.load(f)
+        camera_matrix = np.array(_dict.get('camera_matrix')['data']).reshape(3, 3)
+        dist_coeffs = np.array(_dict['distortion_coefficients']['data'])
+        w, h = _dict['image_width'], _dict['image_height']
+        print('loading camera calibration from {}'.format(filename))
+        print(' camera_matrix\n{}'.format(camera_matrix))
+        print(' distortion\n{}'.format(dist_coeffs))
+        return camera_matrix, dist_coeffs, w, h
+
 
 def T_of_rpy_t(rpy, t):
     T = tf.transformations.euler_matrix(rpy[0], rpy[1], rpy[2], 'sxyz')
