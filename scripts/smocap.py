@@ -48,9 +48,10 @@ class Camera:
         
 class SMoCap:
 
-    def __init__(self, detect_rgb, min_area=2):
+    def __init__(self, detect_rgb, undistort, min_area=2, ):
         LOG.info('detect rgb {}'.format( detect_rgb))
         LOG.info('min area {}'.format( min_area))
+        self.undistort = undistort
         self.detect_rgb = detect_rgb
         self.lower_red_hue_range = np.array([0,  100,100]), np.array([10,255,255]) 
         self.upper_red_hue_range = np.array([160,100,100]), np.array([179,255,255])
@@ -200,11 +201,17 @@ class SMoCap:
         # this is a dumb tracking to use as baseline
         m_c_i = self.detected_kp_img[self.kp_of_marker[self.marker_c]]
         m_f_i = self.detected_kp_img[self.kp_of_marker[self.marker_f]]
+
+        if self.undistort:
+            distorted_points = np.array([m_c_i, m_f_i])
+            m_c_i_rect, m_f_i_rect = cv2.undistortPoints(distorted_points.reshape((2,1,2)), self.camera.K, self.camera.D, P=self.camera.K)
+            m_c_i, m_f_i =  m_c_i_rect.squeeze(), m_f_i_rect.squeeze()
+          
         cf_i = m_f_i - m_c_i
         yaw = math.atan2(cf_i[1], cf_i[0])
         self.cam_to_irm_T = tf.transformations.euler_matrix(math.pi, 0, yaw, 'sxyz')
         m_c_c = np.dot(self.camera.invK, utils.to_homo(m_c_i))
-        self.cam_to_irm_T[:3,3] = m_c_c*(self.camera.world_to_cam_t[2]-0.15) #m_c_c*1.35
+        self.cam_to_irm_T[:3,3] = m_c_c*(self.camera.world_to_cam_t[2]-0.15) # was 0.15 for rosmip
         self.cam_to_body_T = np.dot(self.irm_to_body_T, self.cam_to_irm_T)
         if self.camera.world_to_cam_T is not None:
             self.world_to_body_T = np.dot(self.camera.world_to_cam_T, self.cam_to_body_T)

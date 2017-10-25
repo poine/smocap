@@ -13,7 +13,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     np.set_printoptions(precision=3, linewidth=300)
 
-    im = cv2.imread("../test/image_1.png")
+    im = cv2.imread("../test/5_markers_detection_2.png")
     hsv = cv2.cvtColor(im, cv2.COLOR_BGR2HSV)
     
     lower_red_hue_range = np.array([0,  100,100]), np.array([10,255,255]) 
