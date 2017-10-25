@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 import sys, numpy as np, cv2, matplotlib, matplotlib.pyplot as plt
 
-import find_head_pose, utils
+import utils
 import pdb
 
-''' here I separate computation and display in order to reuse fonctions from find_head_pose'''
 
 def plot_scene(images):
     figure = plt.figure()
@@ -34,12 +33,14 @@ def plot_images(images):
         
 
 
+def compute_world_to_cam(chessboards):
+    for chessboard in chessboards:
+        print chessboard['T']
+
+        
 def get_chessboard_transform(filename, camera_matrix, dist_coeffs):
     img = cv2.imread(filename)
     img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-   
-
-
     cb_geom, cb_size = (8, 6), 0.1
     flags = cv2.CALIB_CB_NORMALIZE_IMAGE|cv2.CALIB_CB_ADAPTIVE_THRESH|cv2.CALIB_CB_FILTER_QUADS|cv2.CALIB_CB_SYMMETRIC_GRID
     ret, img_points = cv2.findChessboardCorners(img_gray, cb_geom, flags)
@@ -47,25 +48,25 @@ def get_chessboard_transform(filename, camera_matrix, dist_coeffs):
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
     refined_corners = cv2.cornerSubPix(img_gray, img_points, (11,11), (-1,-1), criteria)
     
-    print('found {} corners'.format(len(img_points)))
+    print('{}: found {} corners'.format(filename, len(img_points)))
 
     world_points = np.zeros((cb_geom[0]*cb_geom[1], 3), np.float32)
     world_points[:,:2] = cb_size*np.mgrid[0:cb_geom[0],0:cb_geom[1]].T.reshape(-1,2)
     (success, rotation_vector, translation_vector) = cv2.solvePnP(world_points, img_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_EPNP)
-    print success, rotation_vector, translation_vector
+    #print success, rotation_vector.squeeze(), translation_vector.squeeze()
 
     p_rep, _unused =  cv2.projectPoints(world_points, rotation_vector, translation_vector, camera_matrix, dist_coeffs)
     rep_err = np.mean(np.linalg.norm(img_points - p_rep, axis=2))
-    print 'reprojection error {} px'.format(rep_err)
+    print ' rot {} trans {} reprojection error {} px'.format(rotation_vector.squeeze(), translation_vector.squeeze(), rep_err)
 
     return img, img_points, p_rep, rep_err, rotation_vector, translation_vector
 
 
 
-camera_matrix, dist_coeffs = find_head_pose.load_camera_model('/home/poine/.ros/camera_info/ueye_enac_ceiling_1_6mm.yaml')
+camera_matrix, dist_coeffs, w, h = utils.load_camera_model('/home/poine/.ros/camera_info/ueye_enac_ceiling_1_6mm.yaml')
 #filenames = ['image_01.png']
 filenames = ['image_{:02d}.png'.format(i) for i in range(1,16)]
-print filenames
+#print filenames
 images = []
 for i, filename in enumerate(filenames):
     img, im_points, re_points, re_err, r_vec, t_vec = get_chessboard_transform('../test/chessboard_on_floor_6mm_lens/'+filename, camera_matrix, dist_coeffs)
@@ -78,6 +79,8 @@ for i, filename in enumerate(filenames):
                    'translation': t_vec,
                    'rotation': r_vec})
 
+
+compute_world_to_cam(images) 
 plot_images(images)
 plot_scene(images)
 plt.show()
