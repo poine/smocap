@@ -22,7 +22,7 @@ class SMoCapNode:
         self.processing_duration = None
         self.fps, self.fps_lp = 0., 0.95
 
-        self.smocap = smocap.SMoCap(self.detect_rgb, detect_min_area)
+        self.smocap = smocap.SMoCap(self.detect_rgb, detect_min_area, undistort=True)
 
         if self.publish_image:
             self.image_pub = rospy.Publisher("/smocap/image_debug", sensor_msgs.msg.Image, queue_size=1)
