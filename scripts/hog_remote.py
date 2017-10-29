@@ -4,6 +4,8 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GdkPixbuf, GLib, GObject
 import roslib, rospy, tf,  tf2_ros, geometry_msgs.msg
 
+import utils
+
 class Node:
     def __init__(self):
         self.br = tf2_ros.TransformBroadcaster()
@@ -12,6 +14,9 @@ class Node:
         self.set_position((0, 0, 0))
         self.tf_msg.header.frame_id = "world"
         self.tf_msg.child_frame_id = "irm_link_desired"
+        self.tfBuffer = tf2_ros.Buffer()
+        self.listener = tf2_ros.TransformListener(self.tfBuffer)
+        self.pose_err = (None, None)
 
     def set_orientation(self, eulers):
         self.eulers = eulers
@@ -22,6 +27,12 @@ class Node:
         self.pos = p
         _t = self.tf_msg.transform.translation
         _t.x, _t.y, _t.z = p
+        
+    def marker_has_arrived(self, tol_t=1e-2, tol_r=5e-2):
+        if self.pose_err[0] is None: return False
+        angle_err, _dir, _point = tf.transformations.rotation_from_matrix(tf.transformations.quaternion_matrix(self.pose_err[1]))
+        #print np.linalg.norm(self.pose_err[0]), angle_err
+        return np.linalg.norm(self.pose_err[0]) < tol_t and abs(angle_err) < tol_r
         
     def run(self):
         rate = rospy.Rate(20.)
@@ -35,8 +46,13 @@ class Node:
     def periodic(self):
         self.tf_msg.header.stamp = rospy.Time.now()
         self.br.sendTransform(self.tf_msg)
+        try:
+            d2a = self.tfBuffer.lookup_transform('irm_link_desired', 'irm_link_actual', rospy.Time())
+            self.pose_err = utils.t_q_of_transf_msg(d2a.transform)
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+            self.pose_err = (None, None)
 
-        
+            
 class GUI:
     def __init__(self):
         self.b = Gtk.Builder()
@@ -85,6 +101,7 @@ class App:
                 _e[i] = rad_of_deg(float(self.gui.ori_entries[i].get_text()))
             except ValueError:
                 pass
+        print('setting orientation to {}'.format( _e))
         self.node.set_orientation(_e)
         self.gui.display_orientation(_e)
 
@@ -95,7 +112,7 @@ class App:
                 _p[i] = float(self.gui.pos_entries[i].get_text())
             except ValueError:
                 pass
-        print _p
+        print('setting position to {}'.format( _p))
         self.node.set_position(_p)
         self.gui.display_position(_p)
             

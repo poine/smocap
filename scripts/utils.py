@@ -3,16 +3,48 @@ import matplotlib, matplotlib.pyplot as plt, mpl_toolkits.mplot3d
 import pdb
 
 # Load camera model
-def load_camera_model(filename):
+# I should use something from camera_calibration_parsers
+def load_camera_model(filename, verbose=False):
     with open(filename) as f:
         _dict = yaml.load(f)
         camera_matrix = np.array(_dict.get('camera_matrix')['data']).reshape(3, 3)
         dist_coeffs = np.array(_dict['distortion_coefficients']['data'])
         w, h = _dict['image_width'], _dict['image_height']
-        print('loading camera calibration from {}'.format(filename))
-        print(' camera_matrix\n{}'.format(camera_matrix))
-        print(' distortion\n{}'.format(dist_coeffs))
-        return camera_matrix, dist_coeffs, w, h
+        if verbose:
+            print('loading camera calibration from {}'.format(filename))
+            print(' camera_matrix\n{}'.format(camera_matrix))
+            print(' distortion\n{}'.format(dist_coeffs))
+    return camera_matrix, dist_coeffs, w, h
+
+# stolen from /opt/ros/kinetic/lib/python2.7/dist-packages/camera_calibration/calibrator.py
+def write_camera_model(filename, cam_info_msg, cname='unknown'):
+    #print cam_info_msg
+    txt = (""
+           + "image_width: " + str(cam_info_msg.width) + "\n"
+           + "image_height: " + str(cam_info_msg.height) + "\n"
+           + "camera_name: " + cname + "\n"
+           + "camera_matrix:\n"
+           + "  rows: 3\n"
+           + "  cols: 3\n"
+           + "  data: [" + ", ".join(["{:.12f}".format(i) for i in  np.array(cam_info_msg.K).reshape(1,9)[0]]) + "]\n"
+           + "distortion_model: " + ("rational_polynomial" if len(cam_info_msg.D) > 5 else "plumb_bob") + "\n"
+           + "distortion_coefficients:\n"
+           + "  rows: 1\n"
+           + "  cols: 5\n"
+           + "  data: [" + ", ".join(["%8f" % cam_info_msg.D[i] for i in range(len(cam_info_msg.D))]) + "]\n"
+           + "rectification_matrix:\n"
+           + "  rows: 3\n"
+           + "  cols: 3\n"
+           + "  data: [" + ", ".join(["%8f" % i for i in np.array(cam_info_msg.R).reshape(1,9)[0]]) + "]\n"
+           + "projection_matrix:\n"
+           + "  rows: 3\n"
+           + "  cols: 4\n"
+           + "  data: [" + ", ".join(["%8f" % i for i in np.array(cam_info_msg.P).reshape(1,12)[0]]) + "]\n"
+           + "\n")
+    with open(filename, 'w') as f:
+        #f.write("%YAML:1.0\n")
+        #yaml.dump(calib, f)
+        f.write(txt)
 
 # Transforms
 def T_of_t_rpy(t, rpy):
@@ -39,6 +71,11 @@ def tq_of_T(T):
 def tR_of_T(T):
     return T[:3,3], T[:3,:3]
 
+def tr_of_T(T):
+    ''' return translation and rodrigues angles from a 4x4 transform matrix '''
+    r, _ = cv2.Rodrigues(T[:3,:3])
+    return T[:3,3], r.squeeze()
+
 # TF messages
 def list_of_position(p): return (p.x, p.y, p.z)
 def list_of_orientation(q): return (q.x, q.y, q.z, q.w)
@@ -47,6 +84,10 @@ def position_and_orientation_from_T(p, q, T):
     p.x, p.y, p.z = T[:3, 3]
     q.x, q.y, q.z, q.w = tf.transformations.quaternion_from_matrix(T)
 
+def t_q_of_transf_msg(transf_msg):
+    return list_of_position(transf_msg.translation), list_of_orientation(transf_msg.rotation)
+
+    
 def to_homo(p): return np.array([p[0], p[1], 1.])
 
                 

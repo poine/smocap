@@ -2,7 +2,7 @@
 import roslib
 #roslib.load_manifest('my_package')
 import sys , numpy as np, rospy, cv2, sensor_msgs.msg, geometry_msgs.msg, cv_bridge
-import tf.transformations
+import tf.transformations, tf2_ros
 import pdb
 
 import smocap, utils
@@ -14,16 +14,31 @@ class SMoCapNode:
     def __init__(self):
         self.publish_image = rospy.get_param('~publish_image', True)
         self.publish_est =   rospy.get_param('~publish_est', True)
-        camera = rospy.get_param('~camera', '/camera')
-        self.detect_rgb = rospy.get_param('~detect_rgb', False)
-        detect_min_area = rospy.get_param('~detect_min_area', 2)
+        camera_name =        rospy.get_param('~camera', '/camera')
+        self.detect_rgb =    rospy.get_param('~detect_rgb', False)
+        detect_min_area =    rospy.get_param('~detect_min_area', 2)
 
         self.last_frame_time = None
         self.processing_duration = None
         self.fps, self.fps_lp = 0., 0.95
 
-        self.smocap = smocap.SMoCap(self.detect_rgb, detect_min_area, undistort=True)
+        self.smocap = smocap.SMoCap(self.detect_rgb, undistort=True, min_area=detect_min_area)
 
+        cam_info_msg = rospy.wait_for_message(camera_name+'/camera_info', sensor_msgs.msg.CameraInfo)
+        self.smocap.set_camera_calibration(np.array(cam_info_msg.K).reshape(3,3), np.array(cam_info_msg.D), cam_info_msg.width, cam_info_msg.height)
+        rospy.loginfo(' retrieved camera calibration')
+
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
+        while not self.smocap.camera.is_localized():
+            try:
+                world_to_camo_transf = self.tf_buffer.lookup_transform('world', 'camera_optical_frame', rospy.Time(0))
+                world_to_camo_t, world_to_camo_q = utils.t_q_of_transf_msg(world_to_camo_transf.transform)
+                self.smocap.set_world_to_cam(world_to_camo_t, world_to_camo_q)
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                rospy.loginfo_throttle(1., " waiting to get camera location")
+        rospy.loginfo(' retrieved camera location')
+            
         if self.publish_image:
             self.image_pub = rospy.Publisher("/smocap/image_debug", sensor_msgs.msg.Image, queue_size=1)
 
@@ -31,17 +46,8 @@ class SMoCapNode:
             self.est_cam_pub = rospy.Publisher('/smocap/est_cam', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
             self.est_world_pub = rospy.Publisher('/smocap/est_world', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
             
-        self.tfl = utils.TfListener()
-
         self.bridge = cv_bridge.CvBridge()
-        self.image_sub = rospy.Subscriber(camera+'/image_raw', sensor_msgs.msg.Image, self.img_callback, queue_size=1)
-        self.camera_info_sub = rospy.Subscriber(camera+'/camera_info', sensor_msgs.msg.CameraInfo, self.cam_info_callback)
-
-
-    def cam_info_callback(self, msg):
-        self.camera_info_sub.unregister()
-        self.camera_info_sub = None
-        self.smocap.set_camera_calibration(np.array(msg.K).reshape(3,3), np.array(msg.D), msg.width, msg.height)
+        self.image_sub = rospy.Subscriber(camera_name+'/image_raw', sensor_msgs.msg.Image, self.img_callback, queue_size=1)
         
     def draw_debug_image(self, img, draw_true_markers=False):
         img_with_keypoints = self.smocap.draw_debug_on_image(img)
@@ -65,7 +71,7 @@ class SMoCapNode:
         msg = geometry_msgs.msg.PoseWithCovarianceStamped()
         msg.header.frame_id = "camera_optical_frame"
         msg.header.stamp = self.last_frame_time#rospy.Time.now()
-        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.cam_to_body_T)
+        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.cam_to_body_T)
         #std_xy, std_z, std_rxy, std_rz = 0.05, 0.01, 0.5, 0.05
         std_xy, std_z, std_rxy, std_rz = 0.1, 0.01, 0.5, 0.1
         msg.pose.covariance[0]  = msg.pose.covariance[7] = std_xy**2
@@ -89,13 +95,6 @@ class SMoCapNode:
         except cv_bridge.CvBridgeError as e:
             print(e)
 
-        if self.smocap.camera.world_to_cam_T is None:
-            try:
-                world_to_camo_t, world_to_camo_q = self.tfl.get('/world', '/camera_optical_frame')
-                self.smocap.set_world_to_cam(world_to_camo_t, world_to_camo_q)
-            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                pass
-        
         #markers_world = np.array([self.tfl.transformPoint(m_b, "base_link", "world") for m_b in self.smocap.markers_body])
         #print('markers world\n{}'.format(markers_world))
 
@@ -115,10 +114,11 @@ class SMoCapNode:
             #self.smocap.detected_kp_img[self.smocap.kp_of_marker[self.smocap.marker_c]]
             #pdb.set_trace()
             if self.smocap.keypoints_identified():
+                #self.smocap.track_pnp()
                 self.smocap.track()
         
         
-        if self.publish_est and self.smocap.cam_to_body_T is not None: self.do_publish_est()
+        if self.publish_est and self.smocap.marker.cam_to_body_T is not None: self.do_publish_est()
         
         if self.publish_image:
             debug_image = self.draw_debug_image(cv_image)
@@ -132,6 +132,7 @@ class SMoCapNode:
                 
 def main(args):
   rospy.init_node('smocap_node')
+  rospy.loginfo('smocape starting')
   sn = SMoCapNode()
   try:
     rospy.spin()
