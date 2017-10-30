@@ -17,6 +17,7 @@ def load_camera_model(filename, verbose=False):
     return camera_matrix, dist_coeffs, w, h
 
 # stolen from /opt/ros/kinetic/lib/python2.7/dist-packages/camera_calibration/calibrator.py
+# what a pos!
 def write_camera_model(filename, cam_info_msg, cname='unknown'):
     #print cam_info_msg
     txt = (""

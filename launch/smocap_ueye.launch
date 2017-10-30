@@ -18,10 +18,15 @@
          - camera_link to camera_optical_frame
          - world to map
   -->
+  <!--
   <node pkg="tf" type="static_transform_publisher" name="world_to_cam_link_publisher"
 	args="1 1 2.9 0 1.57079632679 0 world camera_link 100"/>
   <node pkg="tf" type="static_transform_publisher" name="cam_link_to_cam_optical_frame_publisher"
 	args="0 0 0 -0.5 0.5 -0.5 0.5 camera_link camera_optical_frame 100"/>
+  -->
+  <node  name="world_to_cam_optical_frame_publisher" pkg="tf" type="static_transform_publisher"
+	 args="1.79896354  1.33057643  2.81374198 -0.70610063  0.70809591  0.00423334 -0.00204123 world camera_optical_frame 100"/>
+  
   <node pkg="tf" type="static_transform_publisher" name="world_to_map_publisher"
 	args="0 0 0 0 0 0 world map 100"/>
   
