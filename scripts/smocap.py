@@ -2,6 +2,7 @@
 
 import logging, os, timeit
 import math, numpy as np, cv2, tf.transformations
+import scipy.optimize
 
 import utils
 import pdb
@@ -25,10 +26,13 @@ class Marker:
         self.kps_m = np.array([[0, 0, 0], [0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]])
 
         # constant
-        self.irm_to_body_T = np.eye(4); self.irm_to_body_T[2,3] = 0.15
+        self.irm_to_body_T = np.eye(4);# self.irm_to_body_T[2,3] = 0.15
         # marker and body poses
         self.cam_to_irm_T = np.eye(4)
         self.cam_to_body_T, self.world_to_body_T = None, None
+        # timing statistics
+        self.detection_duration = 0.
+        self.tracking_duration = 0.
         
     def set_roi(self, x_lu, y_lu, x_rd, y_rd):
         self.roi = slice(y_lu, y_rd), slice(x_lu, x_rd)
@@ -41,7 +45,8 @@ class Camera:
         self.K, self.D, self.invK = None, None, None
         # world to camera transform
         self.world_to_cam_T, self.world_to_cam_t, self.world_to_cam_q, self.world_to_cam_r = None, None, None, None
-    
+        self.cam_to_world_T = None
+        
     def set_calibration(self, K, D, w, h):
         self.K, self.D, self.w, self.h = K, D, w, h
         self.invK = np.linalg.inv(self.K)
@@ -50,6 +55,7 @@ class Camera:
         self.world_to_cam_t, self.world_to_cam_q = world_to_camo_t, world_to_camo_q 
         self.world_to_cam_T = utils.T_of_t_q(world_to_camo_t, world_to_camo_q)
         self.world_to_cam_r, _unused = cv2.Rodrigues(self.world_to_cam_T[:3,:3])
+        self.cam_to_world_T = np.linalg.inv(self.world_to_cam_T)
 
     def has_calibration(self): return self.K is not None
     def is_localized(self): return self.world_to_cam_t is not None
@@ -87,7 +93,7 @@ class SMoCap:
         self.camera = Camera()
         self._keypoints_detected = False
 
-
+        self.tracking_method = self.track_in_plane
 
     def set_camera_calibration(self, K, D, w, h):
         LOG.info('setting camera calibration to\n{}\n{}\n{},{}'.format(K, D, w, h))
@@ -188,7 +194,7 @@ class SMoCap:
         t = _lambda*np.dot(invC, h3)
         #pdb.set_trace()
 
-    def track_pnp(self, debug=True):
+    def track_pnp(self, debug=False):
         cam_to_irm_t, cam_to_irm_r = utils.tr_of_T(self.marker.cam_to_irm_T)
         kps_img = self.detected_kp_img[self.kp_of_marker].reshape(4,1,2)
 
@@ -201,16 +207,14 @@ class SMoCap:
             print(' detected markers\n{}'.format(kps_img.squeeze()))
             rep_err = np.mean(np.linalg.norm(pm - kps_img.squeeze(), axis=1))
             print('reprojection error {:.2f} px'.format(rep_err))
-        _start = timeit.default_timer()
         # success, r_vec_, t_vec_ = cv2.solvePnP(self.marker.kps_m, kps_img, self.camera.K, self.camera.D, flags=cv2.SOLVEPNP_P3P) # doesn't work...
         # success, r_vec_, t_vec_ = cv2.solvePnP(self.marker.kps_m, kps_img, self.camera.K, self.camera.D, flags=cv2.SOLVEPNP_EPNP) # doesn't work
         success, irm_to_cam_r, irm_to_cam_t = cv2.solvePnP(self.marker.kps_m, kps_img, self.camera.K, self.camera.D,
                                                            np.array([cam_to_irm_r]), np.array([cam_to_irm_t]),
                                                            useExtrinsicGuess=True, flags=cv2.SOLVEPNP_ITERATIVE)
         #success, r_vec_, t_vec_ = cv2.solvePnP(self.marker.kps_m, kps_img, self.camera.K, self.camera.D, flags=cv2.SOLVEPNP_DLS) # doesn't work...
-        _end = timeit.default_timer()
         if debug:
-            print('PnP computed irm_to_cam t {} r {} (in {:.2e}s) '.format(irm_to_cam_t.squeeze(), irm_to_cam_r.squeeze(), _end-_start))
+            print('PnP computed irm_to_cam t {} r {} (in {:.2e}s) '.format(irm_to_cam_t.squeeze(), irm_to_cam_r.squeeze()))
             pm2 = cv2.projectPoints(self.marker.kps_m, irm_to_cam_r, irm_to_cam_t, self.camera.K, self.camera.D)[0].squeeze()
             print(' projected markers (new irm_to_cam)\n{}'.format(pm2))
             rep_err = np.mean(np.linalg.norm(pm2 - kps_img.squeeze(), axis=1))
@@ -218,15 +222,43 @@ class SMoCap:
 
         irm_to_cam_T = utils.T_of_t_r(irm_to_cam_t.squeeze(), irm_to_cam_r) 
         self.marker.cam_to_irm_T = irm_to_cam_T#np.linalg.inv(irm_to_cam_T)
-        self.marker.cam_to_body_T = np.dot(self.marker.irm_to_body_T, self.marker.cam_to_irm_T)
-        if self.camera.world_to_cam_T is not None:
-            self.marker.world_to_body_T = np.dot(self.camera.world_to_cam_T, self.marker.cam_to_body_T)
        #pdb.set_trace()
 
 
+
+    def track_in_plane(self, verbose=0):
+        ''' This is a tracker using bundle adjustment.
+            Position and orientation are constrained to the floor plane '''
+        plane_normal, plane_dist = [0, 0, -1], 2.9
+        kps_img = self.detected_kp_img[self.kp_of_marker]
+
+        def irm_to_cam_T_of_params(params):
+            x, y, theta = params
+            irm_to_world_r, irm_to_world_t = np.array([0., 0, theta]), [x, y, 0]
+            irm_to_world_T = utils.T_of_t_r(irm_to_world_t, irm_to_world_r)
+            return np.dot(self.camera.world_to_cam_T, irm_to_world_T) 
+            
+        def residual(params):
+            irm_to_cam_T = irm_to_cam_T_of_params(params)
+            #pdb.set_trace()
+            irm_to_cam_t, irm_to_cam_r = utils.tr_of_T(irm_to_cam_T)
+            projected_kps = cv2.projectPoints(self.marker.kps_m, irm_to_cam_r, irm_to_cam_t, self.camera.K, self.camera.D)[0].squeeze()
+            return (projected_kps - kps_img).ravel()
+
+        def params_of_irm_to_cam_T(irm_to_cam_T):
+            irm_to_world_T = np.dot(self.camera.cam_to_world_T, irm_to_cam_T) 
+            _angle, _dir, _point = tf.transformations.rotation_from_matrix(irm_to_world_T)
+            #pdb.set_trace()
+            return (irm_to_world_T[0,3], irm_to_world_T[1,3], _angle)
+
+        p0 =  params_of_irm_to_cam_T(self.marker.cam_to_irm_T)
+        res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf')
+        self.marker.cam_to_irm_T = irm_to_cam_T_of_params(res.x)
+
         
+
         
-    def track(self):
+    def track_dumb(self):
         # this is a dumb tracking to use as baseline
         m_c_i = self.detected_kp_img[self.kp_of_marker[Marker.kp_id_c]]
         m_f_i = self.detected_kp_img[self.kp_of_marker[Marker.kp_id_f]]
@@ -240,12 +272,20 @@ class SMoCap:
         yaw = math.atan2(cf_i[1], cf_i[0])
         self.marker.cam_to_irm_T = tf.transformations.euler_matrix(math.pi, 0, yaw, 'sxyz')
         m_c_c = np.dot(self.camera.invK, utils.to_homo(m_c_i))
-        self.marker.cam_to_irm_T[:3,3] = m_c_c*(self.camera.world_to_cam_t[2]-0.15) # was 0.15 for rosmip
-        self.marker.cam_to_body_T = np.dot(self.marker.irm_to_body_T, self.marker.cam_to_irm_T)
-        if self.camera.world_to_cam_T is not None:
-            self.world_to_body_T = np.dot(self.camera.world_to_cam_T, self.marker.cam_to_body_T)
-
+        self.marker.cam_to_irm_T[:3,3] = m_c_c*(self.camera.world_to_cam_t[2]-0.15)
         
+
+
+    def track(self):
+        _start = timeit.default_timer()
+        self.tracking_method()
+        _end = timeit.default_timer()
+        self.marker.tracking_duration = _end - _start
+        self.marker.cam_to_body_T = np.dot(self.marker.irm_to_body_T, self.marker.cam_to_irm_T)
+        if self.camera.is_localized():
+            self.marker.world_to_body_T = np.dot(self.camera.world_to_cam_T, self.marker.cam_to_body_T)
+
+            
 
     def project(self, body_to_world_T):
         self.markers_world = np.array([np.dot(body_to_world_T, m_b) for m_b in self.markers_body])

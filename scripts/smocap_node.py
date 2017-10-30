@@ -59,7 +59,9 @@ class SMoCapNode:
                 cv2.circle(img_with_keypoints, loc, 5, (0,255,0), 1)
                 cv2.putText(img_with_keypoints, self.smocap.markers_names[i], loc, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1) 
 
-        txt = '{:5.1f} fps, {} detected, (d:{:.0f} ms)'.format(self.fps, len(self.smocap.keypoints), self.smocap.marker.detection_duration*1e3)
+        txt = '{:5.1f} fps, {} detected, (d:{:.0f} ms t:{:.0f} ms)'.format(self.fps, len(self.smocap.keypoints),
+                                                                        self.smocap.marker.detection_duration*1e3,
+                                                                        self.smocap.marker.tracking_duration*1e3)
         h, w, d = img_with_keypoints.shape    
         loc = (10, h-20)
         cv2.putText(img_with_keypoints, txt, loc, cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 2) 
@@ -80,7 +82,7 @@ class SMoCapNode:
         msg.pose.covariance[35] = std_rz**2
         self.est_cam_pub.publish(msg)
         msg.header.frame_id = "world"
-        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.world_to_body_T)
+        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.world_to_body_T)
         self.est_world_pub.publish(msg)
         
         
@@ -114,7 +116,6 @@ class SMoCapNode:
             #self.smocap.detected_kp_img[self.smocap.kp_of_marker[self.smocap.marker_c]]
             #pdb.set_trace()
             if self.smocap.keypoints_identified():
-                #self.smocap.track_pnp()
                 self.smocap.track()
         
         

@@ -25,21 +25,27 @@ def test(image_path, cam_calib_path, min_area, detect_rgb):
     print('detected {} keypoints'.format(len(smocap_.detected_kp_img)))
     smocap_.identify_keypoints()
     
+    smocap_.tracking_method = smocap_.track_dumb
     smocap_.track()
-    #print smocap_.cam_to_irm_T # camera to marker transform
     t, q = utils.tq_of_T(smocap_.marker.cam_to_irm_T)
-    print('cam_to_marker: t {} q {}'.format(t, q))
-    smocap_.track_pnp()
+    print('cam_to_marker: t {} q {} ( {:.1f} ms)'.format(t, q, smocap_.marker.tracking_duration*1e3))
+
+    smocap_.tracking_method = smocap_.track_pnp
+    smocap_.marker.cam_to_irm_T = np.eye(4)
+    smocap_.track()
     t, q = utils.tq_of_T(smocap_.marker.cam_to_irm_T)
-    print('cam_to_marker: t {} q {}'.format(t, q))
+    print('cam_to_marker: t {} q {} ( {:.1f} ms)'.format(t, q, smocap_.marker.tracking_duration*1e3))
     
-    #print smocap_.cam_to_irm_T # camera to marker transform
-    
+    smocap_.tracking_method = smocap_.track_in_plane
+    smocap_.marker.cam_to_irm_T = np.eye(4)
+    smocap_.track()
+    t, q = utils.tq_of_T(smocap_.marker.cam_to_irm_T)
+    print('cam_to_marker: t {} q {} ( {:.1f} ms)'.format(t, q, smocap_.marker.tracking_duration*1e3))
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
-    test('../test/gazebo_samples_no_distortion/image_02.png', '../test/gazebo_samples_no_distortion/camera_info.yaml', min_area=2, detect_rgb=True)
+    test('../test/gazebo_samples_no_distortion/image_00.png', '../test/gazebo_samples_no_distortion/camera_info.yaml', min_area=2, detect_rgb=True)
     #test('../test/ueye_ceiling_1_6mm_02.png', '../test/camera_ueye_enac_ceiling_1_6mm.yaml', min_area=12, detect_rgb=False)
 
