@@ -7,6 +7,9 @@ import roslib, rospy, tf,  tf2_ros, geometry_msgs.msg
 import utils
 
 class Node:
+    '''
+    This is a gazebo node that periodically sets world->irm_link_desired tf
+    '''
     def __init__(self):
         self.br = tf2_ros.TransformBroadcaster()
         self.tf_msg = geometry_msgs.msg.TransformStamped()
@@ -31,7 +34,6 @@ class Node:
     def marker_has_arrived(self, tol_t=1e-2, tol_r=5e-2):
         if self.pose_err[0] is None: return False
         angle_err, _dir, _point = tf.transformations.rotation_from_matrix(tf.transformations.quaternion_matrix(self.pose_err[1]))
-        #print np.linalg.norm(self.pose_err[0]), angle_err
         return np.linalg.norm(self.pose_err[0]) < tol_t and abs(angle_err) < tol_r
         
     def run(self):
@@ -85,6 +87,8 @@ class App:
         self.node = Node()
         self.gui = GUI()
         self.register_gui()
+        self.timeout_id = GObject.timeout_add(200, self.on_timeout, None)
+        
         
     def register_gui(self):
         self.gui.window.connect("delete-event", self.quit)
@@ -115,22 +119,22 @@ class App:
         print('setting position to {}'.format( _p))
         self.node.set_position(_p)
         self.gui.display_position(_p)
-            
-        
+
+    def on_timeout(self, user_data):
+        if rospy.is_shutdown(): self.quit(None, None)
+        return True
+    
     def run(self):
         self.ros_thread = threading.Thread(target=self.node.run)
         self.ros_thread.start()
         self.gui.run()
 
     def quit(self, a, b):
-        rospy.signal_shutdown("because")
+        rospy.signal_shutdown("just because")
         self.ros_thread.join()
         print 'ros thread ended'
         Gtk.main_quit()
 
-
-        
-    
 
 def main(args):
   rospy.init_node('hog_remote')

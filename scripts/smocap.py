@@ -40,7 +40,8 @@ class Marker:
         
 
 class Camera:
-    def __init__(self):
+    def __init__(self, name):
+        self.name = name
         # camera matrix, distortion coefficients, inverted camera matrix
         self.K, self.D, self.invK = None, None, None
         # world to camera transform
@@ -90,11 +91,12 @@ class SMoCap:
         self.detector = cv2.SimpleBlobDetector_create(params)
 
         self.marker = Marker()
-        self.camera = Camera()
+        self.cameras = []
         self._keypoints_detected = False
 
         self.tracking_method = self.track_in_plane
 
+#### To be removed
     def set_camera_calibration(self, K, D, w, h):
         LOG.info('setting camera calibration to\n{}\n{}\n{},{}'.format(K, D, w, h))
         self.camera.set_calibration(K, D, w, h)
@@ -102,6 +104,12 @@ class SMoCap:
     def set_world_to_cam(self, world_to_camo_t, world_to_camo_q):
         LOG.info('setting world_to_cam {} {}'.format(world_to_camo_t, world_to_camo_q))
         self.camera.set_location(world_to_camo_t, world_to_camo_q)
+#####
+
+    def add_camera(self, cam):
+         LOG.info('adding camera: {}'.format(cam.name))
+         self.cameras.append(cam)
+
 
     def detect_keypoints(self, img):
         # if no Region Of Interest exists yet, set it to full image
@@ -175,8 +183,8 @@ class SMoCap:
         # for now just use center point
         self.marker.centroid_img = self.detected_kp_img[self.kp_of_marker[Marker.kp_id_c]]
         w = 75
-        x1, x2 = int(max(self.marker.centroid_img[0]-w, 0)), int(min(self.marker.centroid_img[0]+w, self.camera.w))
-        y1, y2 = int(max(self.marker.centroid_img[1]-w, 0)), int(min(self.marker.centroid_img[1]+w, self.camera.h))
+        x1, x2 = int(max(self.marker.centroid_img[0]-w, 0)), int(min(self.marker.centroid_img[0]+w, self.cameras[0].w))
+        y1, y2 = int(max(self.marker.centroid_img[1]-w, 0)), int(min(self.marker.centroid_img[1]+w, self.cameras[0].h))
         self.marker.roi = slice(y1, y2), slice(x1, x2)
 
         
@@ -201,7 +209,7 @@ class SMoCap:
         # projectPoints and solvePnP use irm_to_cam.. .maybe not :(
         if debug:
             print(' current cam_to_irm: t {} r {}'.format(cam_to_irm_t, cam_to_irm_r))
-            pm = cv2.projectPoints(self.marker.kps_m, cam_to_irm_r, cam_to_irm_t, self.camera.K, self.camera.D)[0].squeeze()
+            pm = cv2.projectPoints(self.marker.kps_m, cam_to_irm_r, cam_to_irm_t, self.cameras[0].K, self.cameras[0].D)[0].squeeze()
             print(' projected markers (current cam_to_irm_r)\n{}'.format(pm))
             #print('markers\n{}'.format(self.marker.kps_m))
             print(' detected markers\n{}'.format(kps_img.squeeze()))
@@ -209,13 +217,13 @@ class SMoCap:
             print('reprojection error {:.2f} px'.format(rep_err))
         # success, r_vec_, t_vec_ = cv2.solvePnP(self.marker.kps_m, kps_img, self.camera.K, self.camera.D, flags=cv2.SOLVEPNP_P3P) # doesn't work...
         # success, r_vec_, t_vec_ = cv2.solvePnP(self.marker.kps_m, kps_img, self.camera.K, self.camera.D, flags=cv2.SOLVEPNP_EPNP) # doesn't work
-        success, irm_to_cam_r, irm_to_cam_t = cv2.solvePnP(self.marker.kps_m, kps_img, self.camera.K, self.camera.D,
+        success, irm_to_cam_r, irm_to_cam_t = cv2.solvePnP(self.marker.kps_m, kps_img, self.cameras[0].K, self.cameras[0].D,
                                                            np.array([cam_to_irm_r]), np.array([cam_to_irm_t]),
                                                            useExtrinsicGuess=True, flags=cv2.SOLVEPNP_ITERATIVE)
         #success, r_vec_, t_vec_ = cv2.solvePnP(self.marker.kps_m, kps_img, self.camera.K, self.camera.D, flags=cv2.SOLVEPNP_DLS) # doesn't work...
         if debug:
             print('PnP computed irm_to_cam t {} r {} (in {:.2e}s) '.format(irm_to_cam_t.squeeze(), irm_to_cam_r.squeeze()))
-            pm2 = cv2.projectPoints(self.marker.kps_m, irm_to_cam_r, irm_to_cam_t, self.camera.K, self.camera.D)[0].squeeze()
+            pm2 = cv2.projectPoints(self.marker.kps_m, irm_to_cam_r, irm_to_cam_t, self.cameras[0].K, self.cameras[0].D)[0].squeeze()
             print(' projected markers (new irm_to_cam)\n{}'.format(pm2))
             rep_err = np.mean(np.linalg.norm(pm2 - kps_img.squeeze(), axis=1))
             print('reprojection error {:.2f} px'.format(rep_err))
@@ -236,17 +244,17 @@ class SMoCap:
             x, y, theta = params
             irm_to_world_r, irm_to_world_t = np.array([0., 0, theta]), [x, y, 0]
             irm_to_world_T = utils.T_of_t_r(irm_to_world_t, irm_to_world_r)
-            return np.dot(self.camera.world_to_cam_T, irm_to_world_T) 
+            return np.dot(self.cameras[0].world_to_cam_T, irm_to_world_T) 
             
         def residual(params):
             irm_to_cam_T = irm_to_cam_T_of_params(params)
             #pdb.set_trace()
             irm_to_cam_t, irm_to_cam_r = utils.tr_of_T(irm_to_cam_T)
-            projected_kps = cv2.projectPoints(self.marker.kps_m, irm_to_cam_r, irm_to_cam_t, self.camera.K, self.camera.D)[0].squeeze()
+            projected_kps = cv2.projectPoints(self.marker.kps_m, irm_to_cam_r, irm_to_cam_t, self.cameras[0].K, self.cameras[0].D)[0].squeeze()
             return (projected_kps - kps_img).ravel()
 
         def params_of_irm_to_cam_T(irm_to_cam_T):
-            irm_to_world_T = np.dot(self.camera.cam_to_world_T, irm_to_cam_T) 
+            irm_to_world_T = np.dot(self.cameras[0].cam_to_world_T, irm_to_cam_T) 
             _angle, _dir, _point = tf.transformations.rotation_from_matrix(irm_to_world_T)
             #pdb.set_trace()
             return (irm_to_world_T[0,3], irm_to_world_T[1,3], _angle)
@@ -265,14 +273,14 @@ class SMoCap:
 
         if self.undistort:
             distorted_points = np.array([m_c_i, m_f_i])
-            m_c_i_rect, m_f_i_rect = cv2.undistortPoints(distorted_points.reshape((2,1,2)), self.camera.K, self.camera.D, P=self.camera.K)
+            m_c_i_rect, m_f_i_rect = cv2.undistortPoints(distorted_points.reshape((2,1,2)), self.cameras[0].K, self.cameras[0].D, P=self.cameras[0].K)
             m_c_i, m_f_i =  m_c_i_rect.squeeze(), m_f_i_rect.squeeze()
           
         cf_i = m_f_i - m_c_i
         yaw = math.atan2(cf_i[1], cf_i[0])
         self.marker.cam_to_irm_T = tf.transformations.euler_matrix(math.pi, 0, yaw, 'sxyz')
-        m_c_c = np.dot(self.camera.invK, utils.to_homo(m_c_i))
-        self.marker.cam_to_irm_T[:3,3] = m_c_c*(self.camera.world_to_cam_t[2]-0.15)
+        m_c_c = np.dot(self.cameras[0].invK, utils.to_homo(m_c_i))
+        self.marker.cam_to_irm_T[:3,3] = m_c_c*(self.cameras[0].world_to_cam_t[2]-0.15)
         
 
 
@@ -282,15 +290,15 @@ class SMoCap:
         _end = timeit.default_timer()
         self.marker.tracking_duration = _end - _start
         self.marker.cam_to_body_T = np.dot(self.marker.irm_to_body_T, self.marker.cam_to_irm_T)
-        if self.camera.is_localized():
-            self.marker.world_to_body_T = np.dot(self.camera.world_to_cam_T, self.marker.cam_to_body_T)
+        if self.cameras[0].is_localized():
+            self.marker.world_to_body_T = np.dot(self.cameras[0].world_to_cam_T, self.marker.cam_to_body_T)
 
             
 
     def project(self, body_to_world_T):
         self.markers_world = np.array([np.dot(body_to_world_T, m_b) for m_b in self.markers_body])
         self.projected_markers_img = cv2.projectPoints(np.array([self.markers_world[:,:3]]),
-                                                       self.camera.world_to_cam_r, np.array(self.camera.world_to_cam_t), self.K, self.D)[0].squeeze()    
+                                                       self.cameras[0].world_to_cam_r, np.array(self.cameras[0].world_to_cam_t), self.K, self.D)[0].squeeze()    
         
 
 
