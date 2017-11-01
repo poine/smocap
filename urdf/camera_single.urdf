@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<robot name="smocap_cameras" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:property name="PI" value="3.1415926535897931" />
+  
+  <link name="world" />
+
+  <!-- Camera macro -->
+  <xacro:include filename="$(find smocap)/urdf/camera.urdf.xacro" />
+
+  <xacro:smocap_camera name="" _x="1." _y="1." _z="2.9" _rx="0." _ry="${PI/2}" _rz="0."/>
+
+</robot>

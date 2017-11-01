@@ -1,0 +1,113 @@
+<?xml version="1.0"?>
+<robot name="smocap_camera" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+ <xacro:macro name="smocap_camera" params="name _x _y _z _rx _ry _rz">
+   <xacro:property name="camera_r" value="0.01" />
+
+   <gazebo>
+     <static>true</static>
+   </gazebo>
+
+   <link name="camera${name}_link">
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+	<box size="${camera_r} ${camera_r} ${camera_r}"/>
+      </geometry>
+    </collision>
+    
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+	<box size="${camera_r} ${camera_r} ${camera_r}"/>
+      </geometry>
+      <material name="red"/>
+      <cast_shadows>false</cast_shadows>
+    </visual>
+    
+    <inertial>
+      <mass value="1e-5" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
+      </inertial>
+
+  </link>
+
+   <link name="camera${name}_optical_frame">
+    <inertial>
+      <mass value="0.01"/>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001"/>
+    </inertial>
+    <visual>
+      <!-- bogus values for visual aesthetics -->
+      <origin rpy="0 0 ${PI/2}" xyz="0 0 0"/>
+      <geometry>
+        <cylinder length="0.05" radius="0.02"/>
+      </geometry>
+      <material name="Blue"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <box size="0.01 0.01 0.01"/>
+      </geometry>
+    </collision>
+  </link>
+
+  
+  <joint name="camera${name}_joint"  type="fixed">
+    <origin xyz="${_x} ${_y} ${_z}" rpy="${_rx} ${_ry} ${_rz}" />
+    <parent link="world"/>
+    <child link="camera${name}_link"/>
+  </joint>
+
+  <joint name="camera${name}_optical_frame_joint" type="fixed">
+    <origin rpy="${-PI/2} 0.0 ${-PI/2}" xyz="0.0 0.0 0.0"/>
+    <parent link="camera${name}_link"/>
+    <child link="camera${name}_optical_frame"/>
+  </joint>
+
+
+  <gazebo reference="camera${name}_link">
+    <sensor type="camera" name="camera">
+      <update_rate>30.0</update_rate>
+      <camera name="${name}">
+        <horizontal_fov>1.3962634</horizontal_fov>
+        <image>
+          <width>1600</width>
+          <height>1200</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.02</near>
+          <far>10</far>
+        </clip>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.007</stddev>
+        </noise>
+      </camera>
+      <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+        <alwaysOn>true</alwaysOn>
+        <updateRate>0.0</updateRate>
+        <cameraName>smocap/camera${name}</cameraName>
+        <imageTopicName>image_raw</imageTopicName>
+        <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+        <frameName>camera${name}_link</frameName>
+        <hackBaseline>0.07</hackBaseline>
+        <distortionK1>0.0</distortionK1>
+        <distortionK2>0.0</distortionK2>
+        <distortionK3>0.0</distortionK3>
+        <distortionT1>0.0</distortionT1>
+        <distortionT2>0.0</distortionT2>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  
+ </xacro:macro>
+
+</robot>

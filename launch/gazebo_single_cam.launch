@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!--
+ Loads the ceiling-fixed camera in gazebo
+ and starts the motion capture node
+-->
+<launch>
+
+  <!-- loads URDF description -->
+  <param name="smocap_camera_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/camera_single.urdf"/>
+
+  <!-- spawn camera in gazebo -->
+  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
+	args="-urdf -model smocap -param smocap_camera_description" />
+
+  <!-- publish camera and markers TF -->
+  <node name="smocap_camera_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" >
+    <remap from="robot_description" to="smocap_camera_description" />
+  </node>
+  
+ <!-- <node pkg="tf" type="static_transform_publisher" name="world_to_cam_link_publisher" args="1 1 1.5 0 1.57079632679 0 /world /camera_link 100"/>-->
+
+ <node pkg="tf" type="static_transform_publisher" name="world_to_map_publisher" args="0. 0. 0 0 0 0 /world /map 100"/>
+ 
+  <!-- spawn marker localization node -->
+  <node name="smocap_node" pkg="smocap" type="smocap_node.py">
+    <param name="publish_image"  type="bool" value="true"  />
+    <param name="publish_est"    type="bool" value="true"  />
+    <param name="camera"         type="string" value="/smocap/camera"/>
+    <param name="detect_rgb"     type="bool"   value="true"  />
+    <param name="detect_min_area" type="int"   value="2"    />
+  </node>
+  
+</launch>
