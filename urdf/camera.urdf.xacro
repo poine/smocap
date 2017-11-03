@@ -74,7 +74,7 @@
     <sensor type="camera" name="camera">
       <update_rate>30.0</update_rate>
       <camera name="${name}">
-        <horizontal_fov>1.3962634</horizontal_fov>
+        <horizontal_fov>1.12</horizontal_fov>
         <image>
           <width>1600</width>
           <height>1200</height>
@@ -82,7 +82,7 @@
         </image>
         <clip>
           <near>0.02</near>
-          <far>10</far>
+          <far>3</far>
         </clip>
         <noise>
           <type>gaussian</type>
@@ -100,9 +100,10 @@
         <hackBaseline>0.07</hackBaseline>
         <distortionK1>${_k1}</distortionK1>
         <distortionK2>${_k2}</distortionK2>
+        <distortionK3>${_k3}</distortionK3>
+
         <distortionT1>${_t1}</distortionT1>
         <distortionT2>${_t2}</distortionT2>
-        <distortionK3>${_k3}</distortionK3>
       </plugin>
     </sensor>
   </gazebo>
