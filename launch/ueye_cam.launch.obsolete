@@ -2,7 +2,7 @@
 <launch>
   <node name="check_ueye_api" pkg="ueye_cam" type="check_ueye_api" required="true" />
   <arg name="nodelet_manager_name" value="nodelet_manager" />
-  <arg name="camera_name" value="ueye_enac_ceiling_1_6mm" />
+  <arg name="camera_name" value="ueye_enac_ceiling_1" />
 
   <node pkg="nodelet" type="nodelet" name="$(arg nodelet_manager_name)" args="manager" output="screen" />
   
@@ -46,7 +46,7 @@
     <!-- <param name="gain_boost" type="bool" value="False" />-->
 
     <param name="auto_exposure" type="bool" value="False" />
-    <param name="exposure" type="int" value="8" /><!-- in ms -->
+    <param name="exposure" type="int" value="4" /><!-- in ms -->
 
    <!--  <param name="auto_white_balance" type="bool" value="True" />-->
    <!--  <param name="white_balance_red_offset" type="int" value="0" />-->

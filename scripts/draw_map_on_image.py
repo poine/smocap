@@ -8,26 +8,28 @@ import smocap, utils, guidance
 
 
 
-class SMoCapNode:
+class DrawingNode:
 
-    def __init__(self):
-        
-        camera_name = '/ueye_enac_ceiling_1_6mm'
-        self.cam_img_type = "mono8" #"bgr8"
-        self.camera = smocap.Camera()
+    def __init__(self, camera_name = 'ueye_enac_ceiling_1_6mm',
+                       camera_img_fmt = 'mono8',
+                       map_path = '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_2.yaml',
+                       path_path = '/home/poine/work/oscar.git/oscar/oscar_control/path_track_ethz_5.npz'):
+        self.cam_img_type = camera_img_fmt
+        self.camera = smocap.Camera(camera_name)
         self.retrieve_cam_info(camera_name)
         self.retrieve_cam_localization(camera_name)
-        #self.load_map('/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_oval.yaml')
-        self.load_map('/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_2.yaml')
-        path_path = '/home/poine/work/oscar.git/oscar/oscar_control/path_track_ethz_5.npz'
-        self.path = guidance.Path(load=path_path)
+       
+        self.load_map(map_path)
+       
+        if path_path is not None:
+            self.path = guidance.Path(load=path_path)
 
         self.draw_decorations()
         
+        self.image_pub = rospy.Publisher("/smocap/image_map_debug", sensor_msgs.msg.Image, queue_size=1)
         self.bridge = cv_bridge.CvBridge()
         self.image_sub = rospy.Subscriber(camera_name+'/image_raw', sensor_msgs.msg.Image, self.img_callback, queue_size=1)
 
-        self.image_pub = rospy.Publisher("/smocap/image_map_debug", sensor_msgs.msg.Image, queue_size=1)
          
     def retrieve_cam_info(self, camera_name):
         cam_info_msg = rospy.wait_for_message(camera_name+'/camera_info', sensor_msgs.msg.CameraInfo)
@@ -39,7 +41,7 @@ class SMoCapNode:
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         while not self.camera.is_localized():
             try:
-                world_to_camo_transf = self.tf_buffer.lookup_transform('world', 'camera_optical_frame', rospy.Time(0))
+                world_to_camo_transf = self.tf_buffer.lookup_transform(source_frame='world', target_frame='{}_optical_frame'.format(camera_name), time=rospy.Time(0))
                 world_to_camo_t, world_to_camo_q = utils.t_q_of_transf_msg(world_to_camo_transf.transform)
                 self.camera.set_location(world_to_camo_t, world_to_camo_q)
             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
@@ -100,7 +102,7 @@ class SMoCapNode:
         # draw path
         if draw_path:
             for i in range(len(self.path.points)-1):
-                d = self.map.origin + np.array([0.01, 0.28, 0])
+                d = self.map.origin
                 p0 = [self.path.points[i][0], self.path.points[i][1], 0] + d
                 p1 = [self.path.points[i+1][0], self.path.points[i+1][1], 0] + d
                 self.draw_line_world(self.decorations, p0, p1, 2, c)
@@ -117,9 +119,23 @@ class SMoCapNode:
     
         
 def main(args):
-  rospy.init_node('smocap_node_test')
-  rospy.loginfo('smocape draw starting')
-  sn = SMoCapNode()
+  rospy.init_node('smocap_draw_map_on_image')
+  rospy.loginfo('smocap draw starting')
+  params = {
+      'camera_name': 'ueye_enac_ceiling_1_6mm',
+      'camera_img_fmt': 'mono8',
+      #'map_path':   '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_empty.yaml',
+      #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_2.yaml',
+      #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_3.yaml',
+      #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_4.yaml',
+      'map_path':   '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_oval_01.yaml',
+      #'map_path':   '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_circle_01.yaml',
+      #'path_path':   '/home/poine/work/oscar.git/oscar/oscar_control/path_track_ethz_4_1.npz'
+      #'path_path':   '/home/poine/work/oscar.git/oscar/oscar_control/paths/line_02.npz'
+      #'path_path':   '/home/poine/work/oscar.git/oscar/oscar_control/paths/arc_02.npz'
+      'path_path':   '/home/poine/work/oscar.git/oscar/oscar_control/paths/oval_01.npz'
+  }
+  sn = DrawingNode(**params)
   try:
     rospy.spin()
   except KeyboardInterrupt:

@@ -8,7 +8,7 @@ import smocap, utils
 
 '''
 
-   Find the world to cam orinetation using a set of hardcoded point correspondances
+   Find the world to cam orienetation using a set of hardcoded point correspondances
 
 '''
 
@@ -69,6 +69,11 @@ def main(args):
     world_to_cam_t, world_to_cam_q = utils.tq_of_T(world_to_cam_T)
     print(' world_to_cam_t {} world_to_cam_q {}'.format(world_to_cam_t, world_to_cam_q))
 
+    cam_to_world_T = np.linalg.inv(world_to_cam_T)
+    cam_to_world_t, cam_to_world_q = utils.tq_of_T(cam_to_world_T)
+    print(' cam_to_world_t {} cam_to_world_q {}'.format(cam_to_world_t, cam_to_world_q))
+
+    
     debug_image = draw(img, pts_img, rep_pts_img)
     cv2.imshow('my window title', debug_image)
     cv2.waitKey(0)

@@ -23,6 +23,7 @@ class SMoCapNode:
         self.fps, self.fps_lp = 0., 0.95
 
         self.smocap = smocap.SMoCap(self.detect_rgb, undistort=True, min_area=detect_min_area)
+        self.smocap.marker.heigth_above_floor = 0.09
 
         self.retrieve_cameras(camera_names)
         self.publisher = smocap_node_publisher.SmocapNodePublisher(self.smocap)
@@ -32,8 +33,8 @@ class SMoCapNode:
             self.image_pub = rospy.Publisher("/smocap/image_debug", sensor_msgs.msg.Image, queue_size=1)
 
         if self.publish_est:
-            self.est_cam_pub = rospy.Publisher('/smocap/est_cam', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
-            self.est_world_pub = rospy.Publisher('/smocap/est_world', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
+            self.est_marker_pub = rospy.Publisher('/smocap/est_marker', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
+            self.est_body_pub = rospy.Publisher('/smocap/est_body', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
             
         self.bridge = cv_bridge.CvBridge()
 
@@ -89,19 +90,18 @@ class SMoCapNode:
 
     def do_publish_est(self):
         msg = geometry_msgs.msg.PoseWithCovarianceStamped()
-        msg.header.frame_id = "camera_1_optical_frame"
+        msg.header.frame_id = "world"
         msg.header.stamp = self.last_frame_time#rospy.Time.now()
-        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.irm_to_cam_T)
+        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.irm_to_world_T)
         #std_xy, std_z, std_rxy, std_rz = 0.05, 0.01, 0.5, 0.05
         std_xy, std_z, std_rxy, std_rz = 0.1, 0.01, 0.5, 0.1
         msg.pose.covariance[0]  = msg.pose.covariance[7] = std_xy**2
         msg.pose.covariance[14] = std_z**2
         msg.pose.covariance[21] = msg.pose.covariance[28] = std_rxy**2
         msg.pose.covariance[35] = std_rz**2
-        self.est_cam_pub.publish(msg)
-        msg.header.frame_id = "world"
-        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.irm_to_world_T)
-        self.est_world_pub.publish(msg)
+        self.est_marker_pub.publish(msg)
+        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.body_to_world_T)
+        self.est_body_pub.publish(msg)
         
         
     def img_callback(self, msg, camera_idx):
@@ -138,7 +138,8 @@ class SMoCapNode:
                 self.smocap.track()
         
         
-        if self.publish_est and self.smocap.marker.cam_to_body_T is not None: self.do_publish_est()
+        if self.publish_est and self.smocap.marker.tracking_succeeded():
+            self.do_publish_est()
         
         if self.publish_image:
             debug_image = self.draw_debug_image(cv_image)

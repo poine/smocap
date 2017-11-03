@@ -26,11 +26,14 @@ class Marker:
         self.kps_m = np.array([[0, 0, 0], [0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]])
 
         # constant
-        self.irm_to_body_T = np.eye(4);# self.irm_to_body_T[2,3] = 0.15
+        self.irm_to_body_T = np.eye(4); self.irm_to_body_T[2,3] = 0.09 # FIXME!!!! WTF, this is backwards too!!!
+        self.heigth_above_floor = 0
         
         # marker and body poses
         self.cam_to_irm_T = np.eye(4)
+        self.irm_to_world_T = np.eye(4)
         self.cam_to_body_T, self.world_to_body_T = None, None
+        self.body_to_world_T = np.eye(4)
         # timing statistics
         self.detection_duration = 0.
         self.tracking_duration = 0.
@@ -38,6 +41,7 @@ class Marker:
     def set_roi(self, x_lu, y_lu, x_rd, y_rd):
         self.roi = slice(y_lu, y_rd), slice(x_lu, x_rd)
 
+    def tracking_succeeded(self): return self.cam_to_irm_T is not None
         
 
 class Camera:
@@ -239,13 +243,12 @@ class SMoCap:
 
         def irm_to_cam_T_of_params(params):
             x, y, theta = params
-            irm_to_world_r, irm_to_world_t = np.array([0., 0, theta]), [x, y, 0]
+            irm_to_world_r, irm_to_world_t = np.array([0., 0, theta]), [x, y, self.marker.heigth_above_floor]
             irm_to_world_T = utils.T_of_t_r(irm_to_world_t, irm_to_world_r)
             return np.dot(self.cameras[0].world_to_cam_T, irm_to_world_T) 
             
         def residual(params):
             irm_to_cam_T = irm_to_cam_T_of_params(params)
-            #pdb.set_trace()
             irm_to_cam_t, irm_to_cam_r = utils.tr_of_T(irm_to_cam_T)
             projected_kps = cv2.projectPoints(self.marker.kps_m, irm_to_cam_r, irm_to_cam_t, self.cameras[0].K, self.cameras[0].D)[0].squeeze()
             return (projected_kps - kps_img).ravel()
@@ -291,7 +294,7 @@ class SMoCap:
         self.marker.irm_to_world_T = np.linalg.inv(self.marker.world_to_irm_T)
         self.marker.cam_to_body_T = np.dot(self.marker.irm_to_body_T, self.marker.cam_to_irm_T)
         self.marker.world_to_body_T = np.dot(self.marker.cam_to_body_T, self.cameras[0].world_to_cam_T)
-
+        self.marker.body_to_world_T = np.linalg.inv(self.marker.world_to_body_T)
             
 
     def project(self, body_to_world_T):
