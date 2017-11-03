@@ -27,6 +27,7 @@ class Marker:
 
         # constant
         self.irm_to_body_T = np.eye(4);# self.irm_to_body_T[2,3] = 0.15
+        
         # marker and body poses
         self.cam_to_irm_T = np.eye(4)
         self.cam_to_body_T, self.world_to_body_T = None, None
@@ -91,25 +92,22 @@ class SMoCap:
         self.detector = cv2.SimpleBlobDetector_create(params)
 
         self.marker = Marker()
-        self.cameras = []
+        self.cameras = []        
+        self.floor_planes = []
         self._keypoints_detected = False
 
         self.tracking_method = self.track_in_plane
 
-#### To be removed
-    def set_camera_calibration(self, K, D, w, h):
-        LOG.info('setting camera calibration to\n{}\n{}\n{},{}'.format(K, D, w, h))
-        self.camera.set_calibration(K, D, w, h)
-        
-    def set_world_to_cam(self, world_to_camo_t, world_to_camo_q):
-        LOG.info('setting world_to_cam {} {}'.format(world_to_camo_t, world_to_camo_q))
-        self.camera.set_location(world_to_camo_t, world_to_camo_q)
-#####
-
     def add_camera(self, cam):
          LOG.info('adding camera: {}'.format(cam.name))
          self.cameras.append(cam)
-
+         # FIXME is world_to_cam really cam_to_world???
+         # yes!!!
+         fp_n = cam.world_to_cam_T[:3,2]                    # image of [0 0 1]_world in cam frame
+         fp_d = -np.dot(fp_n ,cam.world_to_cam_T[:3,3])     # 
+         fp = {'n': fp_n, 'd': fp_d}
+         self.floor_planes.append(fp)
+         
 
     def detect_keypoints(self, img):
         # if no Region Of Interest exists yet, set it to full image
@@ -237,7 +235,6 @@ class SMoCap:
     def track_in_plane(self, verbose=0):
         ''' This is a tracker using bundle adjustment.
             Position and orientation are constrained to the floor plane '''
-        plane_normal, plane_dist = [0, 0, -1], 2.9
         kps_img = self.detected_kp_img[self.kp_of_marker]
 
         def irm_to_cam_T_of_params(params):
@@ -254,6 +251,7 @@ class SMoCap:
             return (projected_kps - kps_img).ravel()
 
         def params_of_irm_to_cam_T(irm_to_cam_T):
+            ''' return x,y,theta of irm_to_world transform '''
             irm_to_world_T = np.dot(self.cameras[0].cam_to_world_T, irm_to_cam_T) 
             _angle, _dir, _point = tf.transformations.rotation_from_matrix(irm_to_world_T)
             #pdb.set_trace()
@@ -261,8 +259,8 @@ class SMoCap:
 
         p0 =  params_of_irm_to_cam_T(self.marker.cam_to_irm_T)
         res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf')
-        self.marker.cam_to_irm_T = irm_to_cam_T_of_params(res.x)
-
+        self.marker.irm_to_cam_T = irm_to_cam_T_of_params(res.x) ## WTF!!!
+        self.marker.cam_to_irm_T = np.linalg.inv(self.marker.irm_to_cam_T)
         
 
         
@@ -280,7 +278,7 @@ class SMoCap:
         yaw = math.atan2(cf_i[1], cf_i[0])
         self.marker.cam_to_irm_T = tf.transformations.euler_matrix(math.pi, 0, yaw, 'sxyz')
         m_c_c = np.dot(self.cameras[0].invK, utils.to_homo(m_c_i))
-        self.marker.cam_to_irm_T[:3,3] = m_c_c*(self.cameras[0].world_to_cam_t[2]-0.15)
+        self.marker.cam_to_irm_T[:3,3] = m_c_c*(self.cameras[0].cam_to_world_t[2]-0.15)
         
 
 
@@ -289,9 +287,10 @@ class SMoCap:
         self.tracking_method()
         _end = timeit.default_timer()
         self.marker.tracking_duration = _end - _start
+        self.marker.world_to_irm_T = np.dot(self.marker.cam_to_irm_T, self.cameras[0].world_to_cam_T)
+        self.marker.irm_to_world_T = np.linalg.inv(self.marker.world_to_irm_T)
         self.marker.cam_to_body_T = np.dot(self.marker.irm_to_body_T, self.marker.cam_to_irm_T)
-        if self.cameras[0].is_localized():
-            self.marker.world_to_body_T = np.dot(self.cameras[0].world_to_cam_T, self.marker.cam_to_body_T)
+        self.marker.world_to_body_T = np.dot(self.marker.cam_to_body_T, self.cameras[0].world_to_cam_T)
 
             
 

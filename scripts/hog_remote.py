@@ -10,13 +10,13 @@ class Node:
     '''
     This is a gazebo node that periodically sets world->irm_link_desired tf
     '''
-    def __init__(self):
+    def __init__(self, controlled_link='irm_link'):
         self.br = tf2_ros.TransformBroadcaster()
         self.tf_msg = geometry_msgs.msg.TransformStamped()
         self.set_orientation((0, 0, 0))
         self.set_position((0, 0, 0))
         self.tf_msg.header.frame_id = "world"
-        self.tf_msg.child_frame_id = "irm_link_desired"
+        self.tf_msg.child_frame_id = '{}_desired'.format(controlled_link)
         self.tfBuffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tfBuffer)
         self.pose_err = (None, None)
@@ -84,7 +84,8 @@ def format_pos(p): return '{:.2f}'.format(p)
 
 class App:
     def __init__(self):
-        self.node = Node()
+        controlled_link = rospy.get_param('~controlled_link', 'irm_link')
+        self.node = Node(controlled_link)
         self.gui = GUI()
         self.register_gui()
         self.timeout_id = GObject.timeout_add(200, self.on_timeout, None)

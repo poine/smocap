@@ -5,7 +5,7 @@ import sys , numpy as np, rospy, cv2, sensor_msgs.msg, geometry_msgs.msg, cv_bri
 import tf.transformations, tf2_ros
 import pdb
 
-import smocap, utils
+import smocap, smocap_node_publisher, utils
 
 def round_pt(p): return (int(p[0]), int(p[1]))
 
@@ -25,7 +25,9 @@ class SMoCapNode:
         self.smocap = smocap.SMoCap(self.detect_rgb, undistort=True, min_area=detect_min_area)
 
         self.retrieve_cameras(camera_names)
-            
+        self.publisher = smocap_node_publisher.SmocapNodePublisher(self.smocap)
+
+        
         if self.publish_image:
             self.image_pub = rospy.Publisher("/smocap/image_debug", sensor_msgs.msg.Image, queue_size=1)
 
@@ -37,7 +39,7 @@ class SMoCapNode:
 
         for cam_idx, cam in enumerate(self.smocap.cameras):
             cam_img_topic = '/{}/image_raw'.format(cam.name)
-            self.image_sub = rospy.Subscriber(cam_img_topic, sensor_msgs.msg.Image, self.img_callback, cam_idx, queue_size=1)
+            rospy.Subscriber(cam_img_topic, sensor_msgs.msg.Image, self.img_callback, cam_idx, queue_size=1)
             rospy.loginfo(' subscribed to ({})'.format(cam_img_topic))
 
     def retrieve_cameras(self, camera_names):
@@ -56,7 +58,7 @@ class SMoCapNode:
             while not cam.is_localized():
                 cam_frame = '{}_optical_frame'.format(camera_name)
                 try:
-                    world_to_camo_transf = self.tf_buffer.lookup_transform('world', cam_frame, rospy.Time(0))
+                    world_to_camo_transf = self.tf_buffer.lookup_transform(target_frame=cam_frame, source_frame='world', time=rospy.Time(0))
                     world_to_camo_t, world_to_camo_q = utils.t_q_of_transf_msg(world_to_camo_transf.transform)
                     cam.set_location(world_to_camo_t, world_to_camo_q)
                 except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
@@ -87,9 +89,9 @@ class SMoCapNode:
 
     def do_publish_est(self):
         msg = geometry_msgs.msg.PoseWithCovarianceStamped()
-        msg.header.frame_id = "camera_optical_frame"
+        msg.header.frame_id = "camera_1_optical_frame"
         msg.header.stamp = self.last_frame_time#rospy.Time.now()
-        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.cam_to_body_T)
+        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.irm_to_cam_T)
         #std_xy, std_z, std_rxy, std_rz = 0.05, 0.01, 0.5, 0.05
         std_xy, std_z, std_rxy, std_rz = 0.1, 0.01, 0.5, 0.1
         msg.pose.covariance[0]  = msg.pose.covariance[7] = std_xy**2
@@ -98,7 +100,7 @@ class SMoCapNode:
         msg.pose.covariance[35] = std_rz**2
         self.est_cam_pub.publish(msg)
         msg.header.frame_id = "world"
-        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.world_to_body_T)
+        utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.irm_to_world_T)
         self.est_world_pub.publish(msg)
         
         
@@ -145,18 +147,24 @@ class SMoCapNode:
             except cv_bridge.CvBridgeError as e:
                 print(e)
 
+    def run(self):
+        rate = rospy.Rate(10.)
+        try:
+            while not rospy.is_shutdown():
+                self.periodic()
+                rate.sleep()
+        except rospy.exceptions.ROSInterruptException:
+            pass
 
+    def periodic(self):
+        self.publisher.publish_camera_fov()
 
                 
 def main(args):
   rospy.init_node('smocap_node')
   rospy.loginfo('smocap node starting')
   sn = SMoCapNode()
-  try:
-    rospy.spin()
-  except KeyboardInterrupt:
-    print("Shutting down")
-
+  sn.run()
 
 if __name__ == '__main__':
     main(sys.argv)

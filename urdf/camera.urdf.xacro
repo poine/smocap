@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <robot name="smocap_camera" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
- <xacro:macro name="smocap_camera" params="name _x _y _z _rx _ry _rz">
+ <xacro:macro name="smocap_camera" params="name _x _y _z _rx _ry _rz _k1 _k2 _t1 _t2 _k3">
    <xacro:property name="camera_r" value="0.01" />
 
    <gazebo>
@@ -98,11 +98,11 @@
         <cameraInfoTopicName>camera_info</cameraInfoTopicName>
         <frameName>camera${name}_link</frameName>
         <hackBaseline>0.07</hackBaseline>
-        <distortionK1>0.0</distortionK1>
-        <distortionK2>0.0</distortionK2>
-        <distortionK3>0.0</distortionK3>
-        <distortionT1>0.0</distortionT1>
-        <distortionT2>0.0</distortionT2>
+        <distortionK1>${_k1}</distortionK1>
+        <distortionK2>${_k2}</distortionK2>
+        <distortionT1>${_t1}</distortionT1>
+        <distortionT2>${_t2}</distortionT2>
+        <distortionK3>${_k3}</distortionK3>
       </plugin>
     </sensor>
   </gazebo>

@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<robot name="smocap_chessboard" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:property name="chsbrd_dx" value="1.0" />
+  <xacro:property name="chsbrd_dy" value="1.0" />
+  <xacro:property name="chsbrd_dz" value="0.01" />
+  <xacro:property name="chsbrd_mass" value="0.01" />
+
+
+  <!-- Inertia macros -->
+  <xacro:include filename="$(find smocap)/urdf/inertias.urdf.xacro" />
+
+  <link name="chessboard_link">
+    
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <!--<box size="${chsbrd_dx} ${chsbrd_dy} ${chsbrd_dz}"/>-->
+        <mesh filename="package://smocap/meshes/chessboard.dae"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${chsbrd_dx} ${chsbrd_dy} ${chsbrd_dz}"/>
+      </geometry>
+    </collision>
+    <xacro:inertial_cuboid_with_pose mass="${chsbrd_mass}" x_length="${chsbrd_dx}" y_length="${chsbrd_dy}" z_length="${chsbrd_dz}">
+      <origin xyz="0.00  0.00 0" rpy="0 0 0"/>
+    </xacro:inertial_cuboid_with_pose>
+  </link>
+
+  <gazebo>
+    <plugin name="hand_of_god" filename="libgazebo_ros_hand_of_god.so">
+      <linkName>chessboard_link</linkName>
+      <kl>0.5</kl>
+      <ka>0.003</ka>
+      <frameId>chessboard_link</frameId>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
+    <plugin name="ground_truth" filename="libgazebo_ros_p3d.so">
+      <frameName>world</frameName>
+      <bodyName>chessboard_link</bodyName>
+      <topicName>smocap/chessboard_truth</topicName>
+      <updateRate>30.0</updateRate>
+    </plugin>
+  </gazebo>
+
+</robot>
