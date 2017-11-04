@@ -7,7 +7,8 @@
   <!-- Camera macro -->
   <xacro:include filename="$(find smocap)/urdf/camera.urdf.xacro" />
 
-  <xacro:smocap_camera name="" _x="1." _y="1." _z="2.9" _rx="0." _ry="${PI/2+0.2}" _rz="0."
-                       _k1="0." _k2="0." _k3="0." _t1="0." _t2="0."/>
+  <xacro:smocap_camera name="" _x="1.2" _y="1.77" _z="2.82" _rx="0." _ry="${PI/2}" _rz="0."
+                       _k1="0." _k2="0." _k3="0." _t1="0." _t2="0."
+		       _fps="30."/>
 
 </robot>

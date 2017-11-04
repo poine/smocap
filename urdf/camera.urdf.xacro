@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <robot name="smocap_camera" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
- <xacro:macro name="smocap_camera" params="name _x _y _z _rx _ry _rz _k1 _k2 _t1 _t2 _k3">
+ <xacro:macro name="smocap_camera" params="name _x _y _z _rx _ry _rz _k1 _k2 _t1 _t2 _k3 _fps">
    <xacro:property name="camera_r" value="0.01" />
 
    <gazebo>
@@ -72,9 +72,9 @@
 
   <gazebo reference="camera${name}_link">
     <sensor type="camera" name="camera">
-      <update_rate>30.0</update_rate>
+      <update_rate>${_fps}</update_rate>
       <camera name="${name}">
-        <horizontal_fov>1.12</horizontal_fov>
+        <horizontal_fov>1.15</horizontal_fov>
         <image>
           <width>1600</width>
           <height>1200</height>

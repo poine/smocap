@@ -1,6 +1,9 @@
-import rospy, numpy as np, tf.transformations, yaml, cv2
+import rospy, math, numpy as np, tf.transformations, yaml, cv2
 import matplotlib, matplotlib.pyplot as plt, mpl_toolkits.mplot3d
 import pdb
+
+
+def deg_of_rad(_r): return _r/math.pi*180.
 
 # Load camera model
 # I should use something from camera_calibration_parsers
@@ -76,6 +79,11 @@ def tr_of_T(T):
     ''' return translation and rodrigues angles from a 4x4 transform matrix '''
     r, _ = cv2.Rodrigues(T[:3,:3])
     return T[:3,3], r.squeeze()
+
+
+def transform(a_to_b_T, p_a):
+    return np.dot(a_to_b_T[:3,:3], p_a) + a_to_b_T[:3,3]
+
 
 # TF messages
 def list_of_position(p): return (p.x, p.y, p.z)

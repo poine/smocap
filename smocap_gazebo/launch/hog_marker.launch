@@ -18,7 +18,9 @@
 	args="-urdf -model marker -param marker_description" />
 
   <!-- Launch marker remote control -->
-  <node name="smocap_marker_remote_control" pkg="smocap" type="hog_remote.py" />
+  <node name="smocap_marker_remote_control" pkg="smocap_gazebo" type="hog_remote.py">
+    <param name="initial_location" value="0, 0.2, 0.09"/>
+  </node>
 
 
   

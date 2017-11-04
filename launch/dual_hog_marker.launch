@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="use_sim_time" default="true" />
+  <arg name="gui" default="true" />
+  <arg name="headless" default="false" />
+  
+  <!-- Launch Gazebo with the default world -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="debug" value="0" />
+    <arg name="gui" value="$(arg gui)" />
+    <arg name="use_sim_time" value="$(arg use_sim_time)" />
+    <arg name="headless" value="$(arg headless)" />
+  </include>
+
+  <!-- Spawn markers -->
+  <param name="marker1_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/hog_ir_marker.urdf.xacro root_link:=irm_link_1 mesh:=ir_marker_5.dae" />
+
+  <node name="urdf_spawner1" pkg="gazebo_ros" type="spawn_model"
+	args="-urdf -model marker1 -param marker1_description" />
+
+  <param name="marker2_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/hog_ir_marker.urdf.xacro root_link:=irm_link_2 mesh:=ir_marker_6.dae" />
+
+  <node name="urdf_spawner2" pkg="gazebo_ros" type="spawn_model"
+	args="-urdf -model marker2 -param marker2_description" />
+
+  <!-- Launch marker remote control -->
+  
+  <node name="smocap_marker_remote_control_1" pkg="smocap" type="hog_remote.py">
+    <param name="controlled_link" value="irm_link_1"/>
+  </node>
+  
+  <node name="smocap_marker_remote_control_2" pkg="smocap" type="hog_remote.py">
+    <param name="controlled_link" value="irm_link_2"/>
+  </node>
+  
+</launch>

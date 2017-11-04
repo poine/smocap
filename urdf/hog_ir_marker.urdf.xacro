@@ -1,23 +1,28 @@
 <?xml version="1.0"?>
 <robot name="smocap_marker" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+  <xacro:arg name="root_link" default="irm_link"/>
+  <xacro:arg name="mesh" default="ir_marker.dae"/>
+  
   <!-- Marker macros -->
   <xacro:include filename="$(find smocap)/urdf/ir_marker.urdf.xacro" />
 
+  <xacro:ir_marker root_link="$(arg root_link)" mesh="$(arg mesh)"/>
+  
   <gazebo>
     <plugin name="hand_of_god" filename="libgazebo_ros_hand_of_god.so">
-      <linkName>irm_link</linkName>
+      <linkName>$(arg root_link)</linkName>
       <kl>0.5</kl>
       <ka>0.003</ka>
-      <frameId>irm_link</frameId>
+      <frameId>$(arg root_link)</frameId>
     </plugin>
   </gazebo>
 
   <gazebo>
     <plugin name="ground_truth" filename="libgazebo_ros_p3d.so">
       <frameName>world</frameName>
-      <bodyName>irm_link</bodyName>
-      <topicName>smocap/marker_truth</topicName>
+      <bodyName>$(arg root_link)</bodyName>
+      <topicName>smocap/$(arg root_link)_truth</topicName>
       <updateRate>30.0</updateRate>
     </plugin>
   </gazebo>

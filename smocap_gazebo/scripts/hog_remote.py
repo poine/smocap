@@ -4,6 +4,8 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GdkPixbuf, GLib, GObject
 import roslib, rospy, tf,  tf2_ros, geometry_msgs.msg
 
+import pdb
+
 import utils
 
 class Node:
@@ -56,11 +58,12 @@ class Node:
 
             
 class GUI:
-    def __init__(self):
+    def __init__(self, controlled_link):
         self.b = Gtk.Builder()
         gui_xml_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hog_remote_gui.xml')
         self.b.add_from_file(gui_xml_path)
         self.window = self.b.get_object("window")
+        self.window.set_title('HandOfGod remote: {}'.format(controlled_link))
         self.pos_entries = [self.b.get_object("entry_pos_"+axis) for axis in ['x', 'y', 'z']]
         self.ori_entries = [self.b.get_object("entry_ori_"+axis) for axis in ['r', 'p', 'y']]
         self.window.show_all()
@@ -85,8 +88,10 @@ def format_pos(p): return '{:.2f}'.format(p)
 class App:
     def __init__(self):
         controlled_link = rospy.get_param('~controlled_link', 'irm_link')
+        initial_location = rospy.get_param('~initial_location', '0, 0, 0')
         self.node = Node(controlled_link)
-        self.gui = GUI()
+        self.gui = GUI(controlled_link)
+        self.set_position([float(s) for s in initial_location.split(',')])
         self.register_gui()
         self.timeout_id = GObject.timeout_add(200, self.on_timeout, None)
         
@@ -117,6 +122,9 @@ class App:
                 _p[i] = float(self.gui.pos_entries[i].get_text())
             except ValueError:
                 pass
+        self.set_position(_p)
+        
+    def set_position(self, _p):
         print('setting position to {}'.format( _p))
         self.node.set_position(_p)
         self.gui.display_position(_p)

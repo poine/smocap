@@ -8,24 +8,26 @@
 
   <!-- Inertia macros -->
   <xacro:include filename="$(find smocap)/urdf/inertias.urdf.xacro" />
-
-  <link name="irm_link">
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <!--<box size="${irm_dx} ${irm_dy} ${irm_dz}"/>-->
-        <mesh filename="package://smocap/meshes/ir_marker.dae"/>
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <box size="${irm_dx} ${irm_dy} ${irm_dz}"/>
-      </geometry>
-    </collision>
-    <xacro:inertial_cuboid_with_pose mass="${irm_mass}" x_length="${irm_dx}" y_length="${irm_dy}" z_length="${irm_dz}">
-      <origin xyz="0.00  0.00 0" rpy="0 0 0"/>
-    </xacro:inertial_cuboid_with_pose>
-  </link>
+  
+  <xacro:macro name="ir_marker" params="root_link mesh">
+    <link name="${root_link}">
+      <visual>
+	<origin xyz="0 0 0" rpy="0 0 0"/>
+	<geometry>
+          <!--<box size="${irm_dx} ${irm_dy} ${irm_dz}"/>-->
+          <mesh filename="package://smocap/meshes/${mesh}"/>
+	</geometry>
+      </visual>
+      <collision>
+	<origin xyz="0 0 0" rpy="0 0 0"/>
+	<geometry>
+          <box size="${irm_dx} ${irm_dy} ${irm_dz}"/>
+	</geometry>
+      </collision>
+      <xacro:inertial_cuboid_with_pose mass="${irm_mass}" x_length="${irm_dx}" y_length="${irm_dy}" z_length="${irm_dz}">
+	<origin xyz="0.00  0.00 0" rpy="0 0 0"/>
+      </xacro:inertial_cuboid_with_pose>
+    </link>
+  </xacro:macro>
 
 </robot>
