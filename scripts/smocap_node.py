@@ -82,14 +82,14 @@ class SMoCapNode:
         self.publish_image = rospy.get_param('~publish_image', True)
         self.publish_est =   rospy.get_param('~publish_est', True)
         camera_names =       rospy.get_param('~cameras', 'camera')
-        self.detect_rgb =    rospy.get_param('~detect_rgb', False)
+        self.img_encoding =  rospy.get_param('~img_encoding', 'mono8')
         detect_min_area =    rospy.get_param('~detect_min_area', 2)
 
         cams = self.retrieve_cameras(camera_names)
         self.timer = Timer(len(cams))
 
         self.smocap_lock = threading.Lock()
-        self.smocap = smocap.SMoCap(cams, self.detect_rgb, undistort=True, min_area=detect_min_area)
+        self.smocap = smocap.SMoCap(cams, undistort=True, min_area=detect_min_area)
 
         self.smocap.marker.heigth_above_floor = 0.09
 
@@ -121,7 +121,7 @@ class SMoCapNode:
 
         cams = []
         for camera_name in camera_names.split(','):
-            cam = smocap.Camera(camera_name)
+            cam = smocap.Camera(camera_name, self.img_encoding)
             rospy.loginfo(' adding camera: "{}"'.format(camera_name))
             cam_info_topic = '/{}/camera_info'.format(camera_name)
             cam_info_msg = rospy.wait_for_message(cam_info_topic, sensor_msgs.msg.CameraInfo)
@@ -180,6 +180,7 @@ class SMoCapNode:
         
     def img_callback(self, msg, camera_idx):
         #print threading.active_count()
+        # print msg.encoding rgb8 from gazebo
         try:
             cv_image = self.bridges[camera_idx].imgmsg_to_cv2(msg, "passthrough")
         except cv_bridge.CvBridgeError as e:

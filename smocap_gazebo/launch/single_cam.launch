@@ -22,11 +22,11 @@
  
   <!-- spawn marker localization node -->
   <node name="smocap_node" pkg="smocap" type="smocap_node.py">
-    <param name="publish_image"  type="bool" value="true"  />
-    <param name="publish_est"    type="bool" value="true"  />
+    <param name="publish_image"   type="bool"   value="true"  />
+    <param name="publish_est"     type="bool"   value="true"  />
     <param name="cameras"         type="string" value="camera"/>
-    <param name="detect_rgb"     type="bool"   value="true"  />
-    <param name="detect_min_area" type="int"   value="2"    />
+    <param name="img_encoding"    type="string" value="rgb8"  />
+    <param name="detect_min_area" type="int"    value="2"    />
   </node>
   
 </launch>

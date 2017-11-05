@@ -13,16 +13,19 @@ def round_pt(p): return (int(p[0]), int(p[1]))
 
 
 class Detector:
-    def __init__(self, detect_rbg, min_area):
-        self.detect_rgb = detect_rbg
-        self.lower_red_hue_range = np.array([0,  100,100]), np.array([10,255,255]) 
-        self.upper_red_hue_range = np.array([160,100,100]), np.array([179,255,255])
+    def __init__(self, img_encoding, min_area):
+        self.img_encoding = img_encoding
+        if img_encoding in ['rgb8', 'bgr8']:
+            self.lower_red_hue_range = np.array([0,  100,100]), np.array([10,255,255]) 
+            self.upper_red_hue_range = np.array([160,100,100]), np.array([179,255,255])
         params = cv2.SimpleBlobDetector_Params()
+        params.minDistBetweenBlobs = 8
         # Change thresholds
         params.minThreshold = 2;
         params.maxThreshold = 256;
         # Filter by Area.
         params.filterByArea = True
+        params.maxArea = 128
         params.minArea = min_area#16 #2
         # Filter by Circularity
         params.filterByCircularity = True
@@ -36,15 +39,17 @@ class Detector:
         self.detector = cv2.SimpleBlobDetector_create(params)
 
     def detect(self, img, roi):
-
-        if self.detect_rgb: # convert to HSV if detecting RGB
-            #hsv = cv2.cvtColor(img[roi], cv2.COLOR_BGR2HSV)
+        if self.img_encoding == 'rgb8':
             hsv = cv2.cvtColor(img[roi], cv2.COLOR_RGB2HSV)
-            mask1 = cv2.inRange(hsv, *self.lower_red_hue_range)
+            sfc = cv2.inRange(hsv, *self.lower_red_hue_range)
             #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
-            keypoints = self.detector.detect(255-mask1)
-        else:
-            keypoints = self.detector.detect(255-img[roi])
+        elif self.img_encoding == 'bgr8':
+            hsv = cv2.cvtColor(img[roi], cv2.COLOR_BGR2HSV)
+            sfc = cv2.inRange(hsv, *self.lower_red_hue_range)
+            #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
+        elif self.img_encoding == 'mono8':
+            sfc = img[roi]
+        keypoints = self.detector.detect(255-sfc)
 
         img_coords = np.array([kp.pt for kp in keypoints])
         if len(img_coords) > 0:
@@ -53,14 +58,12 @@ class Detector:
 
 
     def detect_ff(self, img):
-        if self.detect_rgb: # convert to HSV if detecting RGB
-            hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-            mask1 = cv2.inRange(hsv, *self.lower_red_hue_range)
-            #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
-            keypoints = self.detector.detect(255-mask1)
-        else:
-            keypoints = self.detector.detect(255-img)
-        return keypoints, np.array([kp.pt for kp in keypoints])
+
+        h, w,c = img.shape
+        roi = slice(0, h), slice(0, w)
+        keypoints, img_coords = self.detect(img, roi)
+
+        return keypoints, img_coords
  
 
     
@@ -132,13 +135,15 @@ class Marker:
         #print self.pts_world
 
 class Camera:
-    def __init__(self, name):
+    def __init__(self, name, encoding='mono8'):
         self.name = name
         # camera matrix, distortion coefficients, inverted camera matrix
         self.K, self.D, self.invK = None, None, None
         # world to camera transform
         self.world_to_cam_T, self.world_to_cam_t, self.world_to_cam_q, self.world_to_cam_r = None, None, None, None
         self.cam_to_world_T = None
+        # image encoding
+        self.img_encoding = encoding
         
     def set_calibration(self, K, D, w, h):
         self.K, self.D, self.w, self.h = K, D, w, h
@@ -165,15 +170,13 @@ class Camera:
     
 class SMoCap:
 
-    def __init__(self, cameras, detect_rgb, undistort, min_area=2):
-        LOG.info(' detect rgb {}'.format( detect_rgb ))
+    def __init__(self, cameras, undistort, min_area=2):
         LOG.info(' undistort {}'.format( undistort ))
         LOG.info(' min area {}'.format( min_area ))
         self.undistort = undistort
-        self.detect_rgb = detect_rgb
 
-        self.detector = Detector(detect_rgb, min_area)
-        self.ff_detectors = [Detector(detect_rgb, min_area) for i in range(len(cameras))]
+        self.detectors = [Detector(cam.img_encoding, min_area) for cam in cameras]
+        self.ff_detectors = [Detector(cam.img_encoding, min_area) for cam in cameras]
         self.cameras = cameras
 
         self.marker = Marker(len(cameras))
@@ -215,7 +218,7 @@ class SMoCap:
             self.marker.set_roi(0, 0, *img.shape[1::-1])
         
         _start = timeit.default_timer()
-        self.keypoints, self.detected_kp_img = self.detector.detect(img, self.marker.roi)
+        self.keypoints, self.detected_kp_img = self.detectors[cam_idx].detect(img, self.marker.roi)
         _end = timeit.default_timer()
         # assume our detection was sucessfull is 4 keypoints were detected
         self._keypoints_detected = (len(self.detected_kp_img) == 4)
@@ -391,18 +394,21 @@ class SMoCap:
 
 
 
-    def draw_debug_on_image(self, img, draw_kp_id=True, draw_roi=True):
-        if self.detect_rgb:
-            debug_img = img
-        else:
+    def draw_debug_on_image(self, img, camera_idx, draw_kp_id=True, draw_roi=True):
+        if self.cameras[camera_idx].img_encoding == 'mono8':
             debug_img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) # make a copy of image, insuring it is a color one
+        else:
+            debug_img = img
+        pdb.set_trace()
 
-        cv2.drawKeypoints(img, self.keypoints, debug_img[self.marker.roi], (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        #cv2.drawKeypoints(img, self.keypoints, debug_img[self.marker.roi], (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        cv2.drawKeypoints(img, self.keypoints, debug_img, (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
         if  draw_kp_id and self.keypoints_detected() and self.keypoints_identified():
             for i in range(len(self.keypoints)):
                 cv2.putText(debug_img[self.marker.roi], Marker.kps_names[self.marker_of_kp[i]],
                             round_pt(self.keypoints[i].pt), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+
         if draw_roi and self.marker.roi is not None:
             pt1 = (self.marker.roi[1].start, self.marker.roi[0].start)
             pt2 = (self.marker.roi[1].stop, self.marker.roi[0].stop) 

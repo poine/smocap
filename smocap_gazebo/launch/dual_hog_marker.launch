@@ -27,10 +27,12 @@
   
   <node name="smocap_marker_remote_control_1" pkg="smocap" type="hog_remote.py">
     <param name="controlled_link" value="irm_link_1"/>
+    <param name="initial_location" value="0, 0.2, 0.09"/>
   </node>
   
   <node name="smocap_marker_remote_control_2" pkg="smocap" type="hog_remote.py">
     <param name="controlled_link" value="irm_link_2"/>
+    <param name="initial_location" value="0, 0.7, 0.09"/>
   </node>
   
 </launch>

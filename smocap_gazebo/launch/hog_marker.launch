@@ -3,6 +3,8 @@
   <arg name="use_sim_time" default="true" />
   <arg name="gui" default="true" />
   <arg name="headless" default="false" />
+  <arg name="marker_mesh" default="ir_marker_5.dae"/>
+  
   
   <!-- Launch Gazebo with the default world -->
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
@@ -13,7 +15,7 @@
   </include>
 
   <!-- Spawn marker -->
-  <param name="marker_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/hog_ir_marker.urdf.xacro" />
+  <param name="marker_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/hog_ir_marker.urdf.xacro mesh:=$(arg marker_mesh)" />
   <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
 	args="-urdf -model marker -param marker_description" />
 
