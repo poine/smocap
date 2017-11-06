@@ -33,7 +33,7 @@
     <param name="publish_image"   type="bool"   value="true"  />
     <param name="publish_est"     type="bool"   value="true" />
     <param name="cameras"         type="string" value="$(arg camera1_name),$(arg camera2_name)"/>
-    <param name="detect_rgb"      type="bool"   value="false"  />
+    <param name="img_encoding"    type="string" value="mono8"  />
     <param name="detect_min_area" type="int"    value="12"    />
     </node>
 
@@ -45,13 +45,13 @@
   <!-- again something fishy here: this is cam to world but i send it as world to cam -->
 
   <node  name="cam1_optical_frame_to_world_frame_publisher" pkg="tf" type="static_transform_publisher"
-         args="1.34435324  1.77016933  2.82543134 -0.70610063  0.70809591  0.00423334  0.00204123 world $(arg camera1_name)_optical_frame 100"/>
+         args="1.36602556  1.77145808  2.87497458  0.70733819 -0.70683061 -0.00752713 -0.00255303 world $(arg camera1_name)_optical_frame 100"/>
 
   <node  name="cam1_optical_frame_to_cam_link_publisher" pkg="tf" type="static_transform_publisher"
 	 args="0 0 0 0.5 -0.5 0.5 0.5 $(arg camera1_name)_optical_frame $(arg camera1_name)_link 50"/>
 
   <node  name="cam2_optical_frame_to_world_frame_publisher" pkg="tf" type="static_transform_publisher"
-	 args="-1.05  1.77016933  2.82543134 -0.70610063  0.70809591  0.00423334  0.00204123 world $(arg camera2_name)_optical_frame 100"/>
+	 args="-1.10244361  1.80122017  2.78129396  0.71194654 -0.70207532 -0.0009438  -0.01488236 world $(arg camera2_name)_optical_frame 100"/>
 
   <node  name="cam2_optical_frame_to_cam_link_publisher" pkg="tf" type="static_transform_publisher"
          args="0 0 0 0.5 -0.5 0.5 0.5 $(arg camera2_name)_optical_frame $(arg camera2_name)_link 50"/>

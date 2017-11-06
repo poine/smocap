@@ -59,7 +59,7 @@ class Detector:
 
     def detect_ff(self, img):
 
-        h, w,c = img.shape
+        h, w = img.shape[:2]
         roi = slice(0, h), slice(0, w)
         keypoints, img_coords = self.detect(img, roi)
 
@@ -187,6 +187,9 @@ class SMoCap:
          
 
     def detect_markers_in_full_frame(self, img, cam_idx):
+        '''
+        Called by frame sercher thread
+        '''
         keypoints, detected_kp_img = self.ff_detectors[cam_idx].detect_ff(img)
         print('in detect_markers_in_full_frame {} {}'.format(cam_idx, detected_kp_img.squeeze()))
         
@@ -399,7 +402,6 @@ class SMoCap:
             debug_img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) # make a copy of image, insuring it is a color one
         else:
             debug_img = img
-        pdb.set_trace()
 
         #cv2.drawKeypoints(img, self.keypoints, debug_img[self.marker.roi], (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
         cv2.drawKeypoints(img, self.keypoints, debug_img, (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)

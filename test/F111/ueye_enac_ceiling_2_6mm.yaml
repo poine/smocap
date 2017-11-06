@@ -1,0 +1,20 @@
+image_width: 1600
+image_height: 1200
+camera_name: ueye_enac_ceiling_2_6mm
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [1351.219171441608, 0, 737.0708606930773, 0, 1352.827246213243, 587.7483702119965, 0, 0, 1]
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [-0.2338504272227441, 0.2124566044437353, 0.0007302400041220608, 0.0002958084975657889, -0.08190344416937639]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [1263.15576171875, 0, 731.5643655968888, 0, 0, 1296.750732421875, 587.5307377986173, 0, 0, 0, 1, 0]

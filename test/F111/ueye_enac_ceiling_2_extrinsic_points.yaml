@@ -1,0 +1,43 @@
+point_00:
+  world: 0, 0.3, 0
+  img: 1452, 124
+point_01:
+  world: -1.2, 0.3, 0
+  img: 1464, 669
+point_02:
+  world: -2.1, 0.3, 0
+  img: 1449, 1081
+point_03:
+  world: -1.2, 1.5, 0
+  img: 912, 664
+point_04:
+  world: 0., 3.3, 0
+  img: 106, 112
+point_05:
+  world: -1.2, 3., 0
+  img: 207, 652
+point_06:
+  world: -1.8, 3.3, 0
+  img: 80, 922  
+point_07:
+  world: -2.1, 3.3, 0
+  img: 81, 1055  
+point_08:
+  world: -2.1, 2.4, 0
+  img: 478, 1080  
+
+point_09:
+  world: -0.6, 0.3, 0
+  img: 1462, 391
+
+point_10:
+  world: 0., 0.9, 0
+  img: 1191, 108
+
+point_11:
+  world: 0., 1.8, 0
+  img: 773, 96
+
+point_12:
+  world: -0.9, 2.1, 0
+  img: 623, 515  

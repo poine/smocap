@@ -47,17 +47,14 @@ class FrameSearcher(threading.Thread):
     def run(self):
         while not self._quit:
             with self.condition:
-                #print 'waiting '+self.name
                 self.condition.wait()
-                #print 'awaken '+self.name
                 if self.work is not None:
                     print 'working '+ self.name + " " + str(self.work)
                     self.smocap.detect_markers_in_full_frame(self.img, self.cam_idx)
-                    #time.sleep(1.)
                     self.work = None
-                    #print 'finished working '+self.name
-        #print 'bye '+self.name
-
+                elif self._quit:
+                    return
+            
     def put_image(self, img, seq):
         if not self.condition.acquire(blocking=False):
             return
@@ -141,7 +138,7 @@ class SMoCapNode:
         return cams
         
     def draw_debug_image(self, img, draw_true_markers=False):
-        img_with_keypoints = self.smocap.draw_debug_on_image(img)
+        img_with_keypoints = self.smocap.draw_debug_on_image(img, 0)
 
         # draw projected markers
         if draw_true_markers:
@@ -179,8 +176,11 @@ class SMoCapNode:
         
         
     def img_callback(self, msg, camera_idx):
-        #print threading.active_count()
-        # print msg.encoding rgb8 from gazebo
+        ''' 
+        Called in each video stream thread.
+        '''
+
+        # No need for exclusion, each video stream has its own bridge and full frame detector
         try:
             cv_image = self.bridges[camera_idx].imgmsg_to_cv2(msg, "passthrough")
         except cv_bridge.CvBridgeError as e:
@@ -234,8 +234,6 @@ class SMoCapNode:
             f.stop()
 
     def periodic(self):
-        #self.publisher.publish_camera_fov()
-        #self.publisher.publish_test(self.smocap)
         self.publisher.publish(self.timer, self.smocap)
                 
 def main(args):

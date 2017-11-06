@@ -82,7 +82,8 @@ class SmocapNodePublisher:
         pass
 
     def publish_status(self, _timer, _smocap):
-        txt = '\nTiming:\n'
+        txt = '\nTime: {}\n'.format(rospy.Time.now().to_sec())
+        txt += 'Timing:\n'
         for i, (fps, skipped) in enumerate(zip(_timer.fps, _timer.skipped)):
             txt += (' camera {}: fps {:4.1f} skipped {:d}\n'.format(i, fps, skipped))
         txt += 'Markers:\n'
