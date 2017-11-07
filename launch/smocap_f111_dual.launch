@@ -27,7 +27,6 @@
  
   <!---->
 
-
   <!-- spawn marker localization node -->
   <node name="smocap_node" pkg="smocap" type="smocap_node.py">
     <param name="publish_image"   type="bool"   value="true"  />

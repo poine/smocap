@@ -12,6 +12,9 @@ def round_pt(p): return (int(p[0]), int(p[1]))
 
 
 class Timer:
+    '''
+    Records fps, skipped frames and processing duration for every video stream
+    '''
     def __init__(self, nb_cam):
         self.last_frame_time = [None]*nb_cam
         self.processing_duration = [0.]*nb_cam
@@ -36,6 +39,9 @@ class Timer:
 
 
 class FrameSearcher(threading.Thread):
+    '''
+    Encapsulates the threads responsible for searching markers in full frames at a lower framerate
+    '''
     def __init__(self, _cam_idx, _smocap):
         super(FrameSearcher, self).__init__(name='FrameSearcher_{}'.format(_smocap.cameras[_cam_idx].name))
         self.cam_idx = _cam_idx
@@ -49,7 +55,7 @@ class FrameSearcher(threading.Thread):
             with self.condition:
                 self.condition.wait()
                 if self.work is not None:
-                    print 'working '+ self.name + " " + str(self.work)
+                    #print 'working '+ self.name + " " + str(self.work)
                     self.smocap.detect_markers_in_full_frame(self.img, self.cam_idx)
                     self.work = None
                 elif self._quit:
@@ -115,7 +121,6 @@ class SMoCapNode:
         ''' retrieve camera intrinsics (calibration) and extrinsics (pose) '''
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
-
         cams = []
         for camera_name in camera_names.split(','):
             cam = smocap.Camera(camera_name, self.img_encoding)
@@ -188,7 +193,24 @@ class SMoCapNode:
         
         if self.smocap.has_unlocalized_markers():
             self.frame_searchers[camera_idx].put_image(cv_image, msg.header.seq)
-        
+
+        try:
+            self.timer.signal_start(camera_idx, msg.header.stamp, msg.header.seq)
+            self.smocap.detect_marker_in_roi(cv_image, camera_idx)
+            self.smocap.identify_marker_in_roi(camera_idx)
+            self.smocap.track_marker(camera_idx)
+        except:
+            self.smocap.marker.observations[camera_idx].tracked = False
+            if not any([o.tracked for o in self.smocap.marker.observations]):
+                self.smocap.marker.set_world_pose(None)
+        else:
+            self.smocap.marker.observations[camera_idx].tracked = True
+            if self.publish_est:
+                self.do_publish_est()
+        finally:
+            self.timer.signal_done(camera_idx, rospy.Time.now())
+            
+        return
         if not self.smocap_lock.acquire(False):
             #print('lock failed {}'.format(camera_idx))#threading.current_thread()))
             return
@@ -196,9 +218,6 @@ class SMoCapNode:
             try:
                 #print('lock success {}'.format(camera_idx))#threading.current_thread()))
                 self.timer.signal_start(camera_idx, msg.header.stamp, msg.header.seq)
-                #print msg.encoding
-                #cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8" if self.detect_rgb else "mono8")
-                #cv_image = self.bridges[camera_idx].imgmsg_to_cv2(msg, "passthrough")
                 self.smocap.detect_keypoints(cv_image, camera_idx)
 
                 if camera_idx == 0 and self.smocap.keypoints_detected():

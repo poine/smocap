@@ -89,7 +89,7 @@ class SmocapNodePublisher:
         txt += 'Markers:\n'
         txt += ' marker 0:\n'
         txt += '   localized: {}\n'.format(_smocap.marker.is_localized)
-        txt += '   observations: {}\n'.format([o.roi is not None for o in _smocap.marker.observations] )
+        txt += '   full frame observations: {}\n'.format([o.roi is not None for o in _smocap.marker.ff_observations] )
         t_w_to_m = ' '.join(['{:6.3f}'.format(p) for p in _smocap.marker.world_to_irm_T[:3,3]])
         a_w_to_m = math.atan2(_smocap.marker.world_to_irm_T[0,1], _smocap.marker.world_to_irm_T[0,0])
         txt += '   pose {} m {:5.2f} deg'.format(t_w_to_m, utils.deg_of_rad(a_w_to_m))
