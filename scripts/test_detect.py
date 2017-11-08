@@ -8,25 +8,63 @@ from matplotlib.backends.backend_gtk3agg import FigureCanvasGTK3Agg as FigureCan
 import pdb
 
 #http://www.learnopencv.com/blob-detection-using-opencv-python-c/
-params_fields = ['blobColor',
-                 'filterByArea',
-                 'filterByCircularity',
-                 'filterByColor',
-                 'filterByConvexity',
-                 'filterByInertia',
-                 'maxArea',
-                 'maxCircularity',
-                 'maxConvexity',
-                 'maxInertiaRatio',
-                 'maxThreshold',
-                 'minArea',
-                 'minCircularity',
-                 'minConvexity',
-                 'minDistBetweenBlobs',
-                 'minInertiaRatio',
-                 'minRepeatability',
-                 'minThreshold',
-                 'thresholdStep']
+detector_params = ['blobColor',
+                   'filterByArea',
+                   'filterByCircularity',
+                   'filterByColor',
+                   'filterByConvexity',
+                   'filterByInertia',
+                   'maxArea',
+                   'maxCircularity',
+                   'maxConvexity',
+                   'maxInertiaRatio',
+                   'maxThreshold',
+                   'minArea',
+                   'minCircularity',
+                   'minConvexity',
+                   'minDistBetweenBlobs',
+                   'minInertiaRatio',
+                   'minRepeatability',
+                   'minThreshold',
+                   'thresholdStep']
+
+detector_params_desc = [
+    {
+        'name':'filterByArea',
+        'type':'bool',
+        'params': ['minArea', 'maxArea']
+    },
+    {
+        'name':'filterByCircularity',
+        'params': ['minCircularity', 'maxCircularity']
+    },
+    {
+        'name':'filterByConvexity',
+        'params': ['minConvexity', 'maxConvexity']
+    },
+    {
+        'name':'filterByInertia',
+        'params': ['minInertiaRatio', 'maxInertiaRatio']
+    },
+    {
+        'name':'filterByColor',
+        'params': ['blobColor']
+    },
+    'minDistBetweenBlobs',
+    'minRepeatability',
+    'minThreshold',
+    'thresholdStep'
+]
+
+
+detector_defaults = {
+    'minArea': 12.,
+    'maxArea': 120.,
+    'minDistBetweenBlobs': 8.
+}
+
+
+
 
 class GUI:
     def __init__(self):
@@ -45,13 +83,22 @@ class GUI:
 
         grid = self.b.get_object("grid_params")
         self.labels = {}
-        for i, p in enumerate(params_fields):
+        for i, p in enumerate(detector_params):
             label = Gtk.Label('{}'.format(p))
             label.set_justify(Gtk.Justification.LEFT)
             grid.attach(label, 0, i, 1, 1)
             self.labels[p] = Gtk.Label('')
             grid.attach(self.labels[p], 1, i, 1, 1)
-        
+
+        j = len(detector_params)
+        for p in detector_params_desc:
+            if isinstance(p, dict):
+                print 'dict', p
+                label = Gtk.Label('{}'.format(p['name']))
+                grid.attach(label, 0, j, 1, 1)
+                button = Gtk.CheckButton(p['name'])
+                grid.attach(button, 1, j, 1, 1)
+            
         self.window.show_all()
 
     def display_image(self, img):
@@ -60,9 +107,14 @@ class GUI:
         self.canvas.draw()
 
     def display_params(self, params):
-        for i, p in enumerate(params_fields):
+        for i, p in enumerate(detector_params):
             self.labels[p].set_text('{}'.format(getattr(params, p)))
 
+    def display_detector_res(self, keypoints):
+        textview = self.b.get_object("textview1")
+        textbuffer = textview.get_buffer()
+        textbuffer.set_text("{}".format(keypoints))
+            
     def request_path(self, action):
         dialog = Gtk.FileChooserDialog("Please choose a file", self.window, action,
                                        (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
@@ -78,35 +130,53 @@ class App:
         self.register_gui()
 
         self.params = cv2.SimpleBlobDetector_Params()
-        self.params.minDistBetweenBlobs = 8
+        for p in detector_params:
+            if p in detector_defaults:
+                setattr(self.params, p, detector_defaults[p])
+                
         self.detector = cv2.SimpleBlobDetector_create(self.params)
         self.gui.display_params(self.params)
-        self.load_image("../test/image_12.png")
+        self.load_image("../test/f111_cam1_detect_fail.png")
 
     def register_gui(self):
         self.gui.window.connect("delete-event", self.quit)
-        self.gui.b.get_object("button1").connect("clicked", self.on_open_clicked)
+        self.gui.b.get_object("button_load").connect("clicked", self.on_open_clicked)
+        self.gui.b.get_object("button_detect").connect("clicked", self.on_detect_clicked)
 
     def on_open_clicked(self, b):
         path = self.gui.request_path(Gtk.FileChooserAction.OPEN)
         if path is not None: self.load_image(path)
+
+    def on_detect_clicked(self, button):
+        self.run_detector()
+
         
     def load_image(self, path):
         self.img = cv2.imread(path)
         
         #self.gui.display_image(self.img)
-        self.hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
-        lower_red_hue_range = np.array([0,  100,100]), np.array([10,255,255]) 
-        upper_red_hue_range = np.array([160,100,100]), np.array([179,255,255]) 
-        self.mask1 = cv2.inRange(self.hsv, *lower_red_hue_range)
-        self.mask2 = cv2.inRange(self.hsv, *upper_red_hue_range)
-        #mask = cv2.bitwise_or(mask1)
-        self.masked = cv2.bitwise_and(self.img, self.img, mask=self.mask1)
-        self.keypoints = self.detector.detect(255-self.mask1)
+        self.run_detector()
+        
 
+    def run_detector(self):
+        if 0:
+            self.hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
+            lower_red_hue_range = np.array([0,  100,100]), np.array([10,255,255]) 
+            upper_red_hue_range = np.array([160,100,100]), np.array([179,255,255]) 
+            self.mask1 = cv2.inRange(self.hsv, *lower_red_hue_range)
+            self.mask2 = cv2.inRange(self.hsv, *upper_red_hue_range)
+            #mask = cv2.bitwise_or(mask1)
+            self.masked = cv2.bitwise_and(self.img, self.img, mask=self.mask1)
+            self.keypoints = self.detector.detect(255-self.mask1)
+        else:
+            self.keypoints = self.detector.detect(255-self.img)
+            
         self.img_res = cv2.drawKeypoints(self.img, self.keypoints, np.array([]), (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        print self.keypoints
+        self.gui.display_detector_res(self.keypoints)
         self.gui.display_image(self.img_res)
-         
+        
+        
     def run(self):
         Gtk.main()
 

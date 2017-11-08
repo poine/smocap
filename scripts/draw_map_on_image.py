@@ -82,10 +82,10 @@ class DrawingNode:
         self.decorations[:,:,3] = 200
         # draw grid
         tile_size = 0.3
-        for x in range(0, 10):
+        for x in range(-8, 10):
             self.draw_line_world(self.decorations, [x*tile_size, -0.1, 0], [x*tile_size, 3.5, 0], 500, (128, 128, 128))
         for y in range(0, 12):
-            self.draw_line_world(self.decorations, [-0.1, y*tile_size, 0], [2.5, y*tile_size, 0], 500, (128, 128, 128)) 
+            self.draw_line_world(self.decorations, [-2.6, y*tile_size, 0], [2.5, y*tile_size, 0], 500, (128, 128, 128)) 
         # draw world triedra
         for ep_w, c in zip(([1., 0, 0], [0., 1, 0], [0., 0, 1]), ((0,0,255), (0, 255,0), (255,0,0))):
             self.draw_line_world(self.decorations, [0, 0, 0], ep_w, 500, c)
@@ -122,13 +122,14 @@ def main(args):
   rospy.init_node('smocap_draw_map_on_image')
   rospy.loginfo('smocap draw starting')
   params = {
-      'camera_name': 'ueye_enac_ceiling_1_6mm',
+      'camera_name': 'ueye_enac_ceiling_2_6mm',
       'camera_img_fmt': 'mono8',
+      'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_dual.yaml',
       #'map_path':   '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_empty.yaml',
       #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_2.yaml',
       #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_3.yaml',
       #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_4.yaml',
-      'map_path':   '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_oval_01.yaml',
+      #'map_path':   '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_oval_01.yaml',
       #'map_path':   '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_circle_01.yaml',
       #'path_path':   '/home/poine/work/oscar.git/oscar/oscar_control/path_track_ethz_4_1.npz'
       #'path_path':   '/home/poine/work/oscar.git/oscar/oscar_control/paths/line_02.npz'
