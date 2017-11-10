@@ -90,14 +90,22 @@ class GUI:
             self.labels[p] = Gtk.Label('')
             grid.attach(self.labels[p], 1, i, 1, 1)
 
-        j = len(detector_params)
+        j = len(detector_params)+1
         for p in detector_params_desc:
             if isinstance(p, dict):
                 print 'dict', p
-                label = Gtk.Label('{}'.format(p['name']))
-                grid.attach(label, 0, j, 1, 1)
                 button = Gtk.CheckButton(p['name'])
-                grid.attach(button, 1, j, 1, 1)
+                grid.attach(button, 0, j, 1, 1)
+                j+=1
+                for sp in p['params']:
+                    label = Gtk.Label('{}'.format(sp))
+                    label.set_justify(Gtk.Justification.LEFT)
+                    grid.attach(label, 0, j, 1, 1)
+                    adj = Gtk.Adjustment(0, 0, 100, 5, 10, 0)
+                    scale = Gtk.Scale(orientation=Gtk.Orientation.HORIZONTAL, adjustment=adj)
+                    grid.attach(scale, 1, j, 2, 1)
+                    print sp
+                    j+=1
             
         self.window.show_all()
 
@@ -110,6 +118,9 @@ class GUI:
         for i, p in enumerate(detector_params):
             self.labels[p].set_text('{}'.format(getattr(params, p)))
 
+    def display_params2(self ,params):
+        pass
+            
     def display_detector_res(self, keypoints):
         textview = self.b.get_object("textview1")
         textbuffer = textview.get_buffer()
