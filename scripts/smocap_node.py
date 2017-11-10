@@ -86,13 +86,18 @@ class SMoCapNode:
         self.publish_est =   rospy.get_param('~publish_est', True)
         camera_names =       rospy.get_param('~cameras', 'camera')
         self.img_encoding =  rospy.get_param('~img_encoding', 'mono8')
-        detect_min_area =    rospy.get_param('~detect_min_area', 2)
-
+        detector_cfg_path =    rospy.get_param('~detector_cfg_path', '/home/poine/work/smocap.git/params/f111_detector_default.yaml')
+        self.trap_losses = rospy.get_param('~trap_losses', False)
+        
         cams = self.retrieve_cameras(camera_names)
         self.timer = Timer(len(cams))
 
-        self.smocap_lock = threading.Lock()
-        self.smocap = smocap.SMoCap(cams, undistort=True, min_area=detect_min_area)
+        if self.trap_losses:
+            self.lost_log_lock = threading.Lock()
+            self.lost_log = []
+            self.lost_dir = '/home/poine/work/smocap.git/test/F111_misc/'
+        
+        self.smocap = smocap.SMoCap(cams, undistort=True, detector_cfg_path=detector_cfg_path)
 
         self.smocap.marker.heigth_above_floor = 0.09
 
@@ -200,6 +205,13 @@ class SMoCapNode:
             self.smocap.identify_marker_in_roi(camera_idx)
             self.smocap.track_marker(camera_idx)
         except:
+            if self.trap_losses and self.smocap.marker.observations[camera_idx].tracked: # if we just lost the marker
+                img_path = self.lost_dir+'/img_{:03d}.png'.format(len(self.lost_log))
+                print 'lost at {} ({})'.format(self.smocap.marker.irm_to_world_T[:3,3], img_path)
+                with self.lost_log_lock:
+                    self.lost_log.append(self.smocap.marker.irm_to_world_T[:3,3])
+                    cv2.imwrite(img_path, cv_image)
+                    
             self.smocap.marker.observations[camera_idx].tracked = False
             if not any([o.tracked for o in self.smocap.marker.observations]):
                 self.smocap.marker.set_world_pose(None)
@@ -210,35 +222,7 @@ class SMoCapNode:
         finally:
             self.timer.signal_done(camera_idx, rospy.Time.now())
             
-        return
-        if not self.smocap_lock.acquire(False):
-            #print('lock failed {}'.format(camera_idx))#threading.current_thread()))
-            return
-        else:
-            try:
-                #print('lock success {}'.format(camera_idx))#threading.current_thread()))
-                self.timer.signal_start(camera_idx, msg.header.stamp, msg.header.seq)
-                self.smocap.detect_keypoints(cv_image, camera_idx)
-
-                if camera_idx == 0 and self.smocap.keypoints_detected():
-                    self.smocap.identify_keypoints()
-                    if self.smocap.keypoints_identified():
-                        self.smocap.track()
-        
-        
-                        if self.publish_est and self.smocap.marker.tracking_succeeded():
-                            self.do_publish_est()
-        
-                        if self.publish_image:
-                            debug_image = self.draw_debug_image(cv_image)
-                            self.image_pub.publish(self.bridges[camera_idx].cv2_to_imgmsg(debug_image, "bgr8"))
-                        self.timer.signal_done(camera_idx, rospy.Time.now())
-            except cv_bridge.CvBridgeError as e:
-                print(e)
-            finally:
-                self.smocap_lock.release()
-
-                
+    
 
                 
     def run(self):
@@ -249,6 +233,9 @@ class SMoCapNode:
                 rate.sleep()
         except rospy.exceptions.ROSInterruptException:
             pass
+        if self.trap_losses:
+            with open('/tmp/lost_log.npz', 'wb') as f:
+                np.savez(f, self.lost_log)
         for f in self.frame_searchers:
             f.stop()
 

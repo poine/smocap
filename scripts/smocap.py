@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import logging, os, timeit
+import logging, os, timeit, yaml
 import math, numpy as np, cv2, tf.transformations
 import scipy.optimize
 
@@ -16,30 +16,39 @@ class MyException(Exception):
         Exception.__init__(self,*args,**kwargs)
         
 class Detector:
-    def __init__(self, img_encoding, min_area):
+
+    param_names =[
+        'blobColor',
+        'filterByArea',
+        'filterByCircularity',
+        'filterByColor',
+        'filterByConvexity',
+        'filterByInertia',
+        'maxArea',
+        'maxCircularity',
+        'maxConvexity',
+        'maxInertiaRatio',
+        'maxThreshold',
+        'minArea',
+        'minCircularity',
+        'minConvexity',
+        'minDistBetweenBlobs',
+        'minInertiaRatio',
+        'minRepeatability',
+        'minThreshold',
+        'thresholdStep']
+
+    
+    
+    def __init__(self, img_encoding, cfg_path=None):
         self.img_encoding = img_encoding
         if img_encoding in ['rgb8', 'bgr8']:
             self.lower_red_hue_range = np.array([0,  100,100]), np.array([10,255,255]) 
             self.upper_red_hue_range = np.array([160,100,100]), np.array([179,255,255])
-        params = cv2.SimpleBlobDetector_Params()
-        params.minDistBetweenBlobs = 8
-        # Change thresholds
-        params.minThreshold = 2;
-        params.maxThreshold = 256;
-        # Filter by Area.
-        params.filterByArea = True
-        params.maxArea = 128
-        params.minArea = min_area
-        # Filter by Circularity
-        params.filterByCircularity = True
-        params.minCircularity = 0.1
-        # Filter by Convexity
-        params.filterByConvexity = True
-        params.minConvexity = 0.5
-        # Filter by Inertia
-        params.filterByInertia = True
-        params.minInertiaRatio = 0.5
-        self.detector = cv2.SimpleBlobDetector_create(params)
+        self.params = cv2.SimpleBlobDetector_Params()
+        if cfg_path is not None:
+            self.load_cfg(cfg_path)
+        self.detector = cv2.SimpleBlobDetector_create(self.params)
 
     def detect(self, img, roi):
         if self.img_encoding == 'rgb8':
@@ -52,7 +61,7 @@ class Detector:
             #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
         elif self.img_encoding == 'mono8':
             sfc = img[roi]
-        keypoints = self.detector.detect(255-sfc)
+        keypoints = self.detector.detect(sfc)
 
         img_coords = np.array([kp.pt for kp in keypoints])
         if len(img_coords) > 0:
@@ -66,7 +75,25 @@ class Detector:
         return self.detect(img, roi)
  
 
+    def load_cfg(self, path):
+        with open(path, 'r') as stream:   
+            d = yaml.load(stream)
+        for k in d:
+            setattr(self.params, k, d[k])
+        self.detector = cv2.SimpleBlobDetector_create(self.params)
+
+    def save_cfg(self, path):
+        d = {}
+        for p in Detector.param_names:
+            d[p] =  getattr(self.params, p)
+        with open(path, 'w') as stream:
+            yaml.dump(d, stream, default_flow_style=False)
     
+    def update_param(self, name, value):
+        setattr(self.params, name, value)
+        self.detector = cv2.SimpleBlobDetector_create(self.params)
+
+            
 
 class Observation:
     def __init__(self):
@@ -122,7 +149,7 @@ class Marker:
     def has_ff_observation(self, cam_idx): return self.ff_observations[cam_idx].roi is not None
         
 
-    def compute_roi(self, pts_img, cam, margin = 40):
+    def compute_roi(self, pts_img, cam, margin = 70):
         x_lu, y_lu = np.min(pts_img, axis=0).squeeze().astype(int)
         x_rd, y_rd = np.max(pts_img, axis=0).squeeze().astype(int)
         # print x_lu, y_lu, x_rd, y_rd
@@ -191,13 +218,13 @@ class Camera:
     
 class SMoCap:
 
-    def __init__(self, cameras, undistort, min_area=2):
+    def __init__(self, cameras, undistort, detector_cfg_path):
         LOG.info(' undistort {}'.format( undistort ))
-        LOG.info(' min area {}'.format( min_area ))
+        LOG.info(' detector cfg path {}'.format( detector_cfg_path ))
         self.undistort = undistort
 
-        self.detectors = [Detector(cam.img_encoding, min_area) for cam in cameras]
-        self.ff_detectors = [Detector(cam.img_encoding, min_area) for cam in cameras]
+        self.detectors = [Detector(cam.img_encoding, detector_cfg_path) for cam in cameras]
+        self.ff_detectors = [Detector(cam.img_encoding, detector_cfg_path) for cam in cameras]
         self.cameras = cameras
 
         self.marker = Marker(len(cameras))
