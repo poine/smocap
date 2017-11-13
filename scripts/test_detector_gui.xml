@@ -35,6 +35,30 @@
                   </packing>
                 </child>
                 <child>
+                  <object class="GtkLabel" id="label_image">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">None</property>
+                  </object>
+                  <packing>
+                    <property name="expand">True</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="label3">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">Display:</property>
+                  </object>
+                  <packing>
+                    <property name="expand">True</property>
+                    <property name="fill">True</property>
+                    <property name="position">2</property>
+                  </packing>
+                </child>
+                <child>
                   <object class="GtkComboBoxText" id="comboboxtext_image">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
@@ -42,14 +66,14 @@
                     <items>
                       <item id="0" translatable="yes">Original</item>
                       <item id="1" translatable="yes">Gamma</item>
-                      <item id="2" translatable="yes">HSV</item>
+                      <item id="2" translatable="yes">Mask</item>
                       <item id="3" translatable="yes">Result</item>
                     </items>
                   </object>
                   <packing>
                     <property name="expand">True</property>
                     <property name="fill">True</property>
-                    <property name="position">1</property>
+                    <property name="position">3</property>
                   </packing>
                 </child>
               </object>

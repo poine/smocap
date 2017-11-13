@@ -3,6 +3,8 @@
 import logging, os, timeit, yaml
 import math, numpy as np, cv2, tf.transformations
 import scipy.optimize
+import scipy.spatial.distance
+import sklearn.cluster
 
 import utils
 import pdb
@@ -17,7 +19,7 @@ class MyException(Exception):
         
 class Detector:
 
-    param_names =[
+    param_names = [
         'blobColor',
         'filterByArea',
         'filterByCircularity',
@@ -36,8 +38,7 @@ class Detector:
         'minInertiaRatio',
         'minRepeatability',
         'minThreshold',
-        'thresholdStep']
-
+        'thresholdStep' ]
     
     
     def __init__(self, img_encoding, cfg_path=None):
@@ -48,20 +49,21 @@ class Detector:
         self.params = cv2.SimpleBlobDetector_Params()
         if cfg_path is not None:
             self.load_cfg(cfg_path)
-        self.detector = cv2.SimpleBlobDetector_create(self.params)
+        else:
+            self.detector = cv2.SimpleBlobDetector_create(self.params)
 
     def detect(self, img, roi):
         if self.img_encoding == 'rgb8':
             hsv = cv2.cvtColor(img[roi], cv2.COLOR_RGB2HSV)
-            sfc = cv2.inRange(hsv, *self.lower_red_hue_range)
+            self.sfc = cv2.inRange(hsv, *self.lower_red_hue_range)
             #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
         elif self.img_encoding == 'bgr8':
             hsv = cv2.cvtColor(img[roi], cv2.COLOR_BGR2HSV)
-            sfc = cv2.inRange(hsv, *self.lower_red_hue_range)
+            self.sfc = cv2.inRange(hsv, *self.lower_red_hue_range)
             #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
         elif self.img_encoding == 'mono8':
-            sfc = img[roi]
-        keypoints = self.detector.detect(sfc)
+            self.sfc = img[roi]
+        keypoints = self.detector.detect(self.sfc)
 
         img_coords = np.array([kp.pt for kp in keypoints])
         if len(img_coords) > 0:
@@ -73,8 +75,23 @@ class Detector:
         h, w = img.shape[:2]
         roi = slice(0, h), slice(0, w)
         return self.detect(img, roi)
- 
 
+
+    def cluster_keypoints(self, kps_img, max_dist=50.):
+        Y1 = scipy.spatial.distance.pdist(kps_img)
+        Y2 = scipy.spatial.distance.squareform(Y1)
+        db = sklearn.cluster.DBSCAN(eps=max_dist, min_samples=1, metric='precomputed')
+        y_db = db.fit_predict(Y2)
+        return y_db
+
+    def identify_marker(self, kps_img, clusters):
+        nb_markers = np.max(clusters) + 1
+        for i in range(nb_markers):
+            cluster = kps_img[clusters==i]
+            print scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(cluster))
+        #pdb.set_trace()
+    
+        
     def load_cfg(self, path):
         with open(path, 'r') as stream:   
             d = yaml.load(stream)

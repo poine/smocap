@@ -72,14 +72,14 @@ class GUI:
         grid = self.b.get_object("grid_params")
 
         j = 0
-        self.toggle_buttons = {}
-        self.entries = {}
+        self.detector_params_toggle_buttons = {}
+        self.detector_params_entries = {}
         for p in detector_params_desc:
             if isinstance(p, dict):
                 #print 'dict', p
                 button = Gtk.CheckButton(p['name'])
                 grid.attach(button, 0, j, 1, 1)
-                self.toggle_buttons[p['name']]= button
+                self.detector_params_toggle_buttons[p['name']]= button
                 j+=1
                 for sp in p['params']:
                     label = Gtk.Label('{}'.format(sp))
@@ -92,7 +92,7 @@ class GUI:
                     else:
                         entry = Gtk.Entry()
                         grid.attach(entry, 1, j, 2, 1)
-                        self.entries[sp] = entry
+                        self.detector_params_entries[sp] = entry
                     #print sp
                     j+=1
             else:
@@ -101,18 +101,26 @@ class GUI:
                 grid.attach(label, 0, j, 1, 1)
                 entry = Gtk.Entry()
                 grid.attach(entry, 1, j, 2, 1)
-                self.entries[p] = entry
+                self.detector_params_entries[p] = entry
                 j+=1
 
         scale = self.b.get_object("scale_gamma")
         adj = Gtk.Adjustment(1., 0.1, 2., 0.05, 0.1, 0)
         scale.set_adjustment(adj)
 
+        self.image_display_mode = 'Original'
                 
         self.window.show_all()
 
-    def display_image(self, img):
-        img2 = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    def display_image(self, model):
+        label = self.b.get_object("label_image")
+        label.set_text(model.image_path)
+        
+        img = model.get_image(self.image_display_mode)
+        if len(img.shape) == 2:
+            img2 = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        else:
+            img2 = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         self.ax.imshow(img2)
         self.canvas.draw()
 
@@ -120,9 +128,9 @@ class GUI:
         for p in smocap.Detector.param_names:
             a = getattr(params, p)
             if isinstance(a, bool):
-                self.toggle_buttons[p].set_active(a)
+                self.detector_params_toggle_buttons[p].set_active(a)
             else:
-                self.entries[p].set_text(str(a))
+                self.detector_params_entries[p].set_text(str(a))
                 
     def display_detector_res(self, keypoints):
         textview = self.b.get_object("textview1")
@@ -150,17 +158,22 @@ class GUI:
         return file_path
 
 
+    def set_image_display_mode(self, model, display_mode):
+        self.image_display_mode = display_mode
+        self.display_image(model)
 
 class Model:
-    def __init__(self, detector_cfg):
+    def __init__(self, detector_cfg, image_encoding):
         self.gamma = 1.
-        self._detector = smocap.Detector('mono8', detector_cfg)
+        self._detector = smocap.Detector(image_encoding, detector_cfg)
+        self.image_path = None
         
     def update_param(self, name, value):
         LOG.info(' updating detector param: {} {}'.format(name, value))
         self._detector.update_param(name, value)
  
     def load_image(self, path):
+        self.image_path = path
         self.img = cv2.imread(path)
 
     def correct_gamma(self, gamma=1.):
@@ -174,7 +187,14 @@ class Model:
         self.keypoints, self.img_coords = self._detector.detect_ff(self.gamma_corrected_img)
         self.img_res = cv2.drawKeypoints(self.gamma_corrected_img, self.keypoints, np.array([]), (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 
-
+    def cluster_blobs(self):
+        self.clusters_id = self._detector.cluster_keypoints(self.img_coords)
+        #print self.clusters
+        #self._detector.identify_marker(self.img_coords, self.clusters)
+        nb_clusters = np.max(self.clusters_id) + 1
+        self.clusters = [self.img_coords[self.clusters_id == i] for i in range(nb_clusters)]
+        return self.clusters
+        
     def save(self, path):
         LOG.info(' saving detector config to: {}'.format(path))
         self._detector.save_cfg(path)
@@ -184,28 +204,39 @@ class Model:
         self._detector.load_cfg(path)
 
 
+    def get_image(self, which):
+        if which == 'Original':
+            return self.img
+        elif which == 'Mask':
+            return self._detector.sfc
+        elif which == 'Result':
+            return self.img_res
+        
         
 class App:
-    def __init__(self):
+
+    def __init__(self, detector_cfg, image_path, image_encoding):
         self.gui = GUI()
-        self.model = Model('/home/poine/work/smocap.git/params/f111_detector_default.yaml')
+        self.model = Model(detector_cfg, image_encoding)
         self.gui.display_params(self.model._detector.params)
         self.register_gui()
-        self.load_image("../test/f111_cam1_detect_fail.png")
+        self.load_image(image_path)
 
     def register_gui(self):
         self.gui.window.connect("delete-event", self.quit)
-        self.gui.b.get_object("button_load_image").connect("clicked", self.on_open_clicked)
+        self.gui.b.get_object("button_load_image").connect("clicked", self.on_load_image_clicked)
         self.gui.b.get_object("button_detect").connect("clicked", self.on_detect_clicked)
         self.gui.b.get_object("button_save_params").connect("clicked", self.on_save_params)
         self.gui.b.get_object("button_load_params").connect("clicked", self.on_load_params)
-        for name in self.gui.toggle_buttons:
-            self.gui.toggle_buttons[name].connect("toggled", self.on_button_toggled, name)
-        for name in self.gui.entries:   
-            self.gui.entries[name].connect("activate", self.on_entry_param_changed, name)
+        for name in self.gui.detector_params_toggle_buttons:
+            self.gui.detector_params_toggle_buttons[name].connect("toggled", self.on_button_toggled, name)
+        for name in self.gui.detector_params_entries:   
+            self.gui.detector_params_entries[name].connect("activate", self.on_entry_param_changed, name)
         self.gui.b.get_object('scale_gamma').connect("value-changed", self.on_gamma_changed)
-         
-    def on_open_clicked(self, b):
+        self.gui.b.get_object('comboboxtext_image').connect("changed", self.on_display_type_changed)
+
+        
+    def on_load_image_clicked(self, b):
         path = self.gui.request_path(Gtk.FileChooserAction.OPEN)
         if path is not None: self.load_image(path)
 
@@ -231,6 +262,9 @@ class App:
 
     def on_gamma_changed(self, event):
         self.model.correct_gamma(self.gui.b.get_object('scale_gamma').get_value())
+
+    def on_display_type_changed(self, combo):
+        self.gui.set_image_display_mode(self.model, combo.get_active_text())
         
     def load_image(self, path):
         LOG.info(' loading image: {}'.format(path))
@@ -242,7 +276,8 @@ class App:
     def run_detector(self):
         self.model.detect_blobs()
         self.gui.display_detector_res(self.model.keypoints)
-        self.gui.display_image(self.model.img_res)
+        #self.gui.display_image(self.model.img_res)
+        self.gui.display_image(self.model)
         
         
     def run(self):
@@ -251,10 +286,25 @@ class App:
     def quit(self, a, b):
         Gtk.main_quit() 
 
+
+
+
+        
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     np.set_printoptions(precision=3, linewidth=300)
-    App().run()
+    args = {
+        'detector_cfg':'/home/poine/work/smocap.git/params/f111_detector_default.yaml',
+        'image_path':'/home/poine/work/smocap.git/test/f111_cam1_detect_fail.png',
+        'image_encoding':'mono8'
+    }
+    args = {
+        'detector_cfg':'/home/poine/work/smocap.git/params/gazebo_detector_cfg.yaml',
+        'image_path':'/home/poine/work/smocap.git/test/image_11.png',
+        'image_encoding':'bgr8'
+    }
+    App(**args).run()
+
 
 
 
