@@ -207,3 +207,40 @@ def annotate3D(ax, s, *args, **kwargs):
 
     tag = Annotation3D(s, *args, **kwargs)
     ax.add_artist(tag)
+
+
+
+
+'''
+   Plotting
+'''
+my_title_spec = {'color'    : 'k', 'fontsize'   : 20 }
+
+def prepare_fig(fig=None, window_title=None, figsize=(20.48, 10.24), margins=None):
+    if fig == None:
+        fig = plt.figure(figsize=figsize)
+    #else:
+    #    plt.figure(fig.number)
+    if margins:
+        left, bottom, right, top, wspace, hspace = margins
+        fig.subplots_adjust(left=left, right=right, bottom=bottom, top=top,
+                            hspace=hspace, wspace=wspace)
+    if window_title:
+         fig.canvas.set_window_title(window_title)
+    return fig
+
+def decorate(ax, title=None, xlab=None, ylab=None, legend=None, xlim=None, ylim=None):
+    ax.xaxis.grid(color='k', linestyle='-', linewidth=0.2)
+    ax.yaxis.grid(color='k', linestyle='-', linewidth=0.2)
+    if xlab:
+        ax.xaxis.set_label_text(xlab)
+    if ylab:
+        ax.yaxis.set_label_text(ylab)
+    if title:
+        ax.set_title(title, my_title_spec)
+    if legend <> None:
+        ax.legend(legend, loc='best')
+    if xlim <> None:
+        ax.set_xlim(xlim[0], xlim[1])
+    if ylim <> None:
+        ax.set_ylim(ylim[0], ylim[1])

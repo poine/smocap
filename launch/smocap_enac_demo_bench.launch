@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="camera1_name" value="ueye_enac_ceiling_3" />
+  <arg name="camera1_id"   value="130" />
+
+  <!-- start cameras -->
+  <!-- -->
+  <arg name="nodelet_manager_name" value="cam_nodelet_manager" />
+  <node name="$(arg nodelet_manager_name)" pkg="nodelet" type="nodelet" args="manager" output="screen" />
+ 
+  <include file="$(find smocap)/launch/ueye_cam.launch">
+    <arg name="camera_name" value="$(arg camera1_name)"/>
+    <arg name="camera_id" value="$(arg camera1_id)"/>
+    <arg name="cam_nodelet_id" value="1"/>
+    <arg name="nodelet_manager_name" value="$(arg nodelet_manager_name)"/>
+  </include>
+  <!---->
+
+  <!-- spawn marker localization node -->
+  <node name="smocap_node" pkg="smocap" type="smocap_node.py">
+    <param name="publish_image"   type="bool"   value="true"  />
+    <param name="publish_est"     type="bool"   value="true" />
+    <param name="cameras"         type="string" value="$(arg camera1_name)"/>
+    <param name="img_encoding"    type="string" value="mono8"  />
+    <param name="detector_cfg_path" type="String"    value="$(find smocap)/params/f111_detector_default.yaml" />
+    <param name="trap_losses"      type="bool"   value="true" />
+  </node>
+
+  <!-- spawn static transform publishers
+         - world to camera_link
+         - camera_link to camera_optical_frame
+         - world to map
+  -->
+  <!-- again something fishy here: this is cam to world but i send it as world to cam -->
+
+  <node  name="cam1_optical_frame_to_world_frame_publisher" pkg="tf" type="static_transform_publisher"
+         args="1.36602556  1.77145808  2.87497458  0.70733819 -0.70683061 -0.00752713 -0.00255303 world $(arg camera1_name)_optical_frame 100"/>
+
+  <node  name="cam1_optical_frame_to_cam_link_publisher" pkg="tf" type="static_transform_publisher"
+	 args="0 0 0 0.5 -0.5 0.5 0.5 $(arg camera1_name)_optical_frame $(arg camera1_name)_link 50"/>
+
+  <!--
+  
+  <node  name="world_to_map_publisher" pkg="tf" type="static_transform_publisher"
+	args="0 0 0 0 0 0 world map 100"/>
+  -->
+	
+</launch>
