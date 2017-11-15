@@ -11,6 +11,31 @@ import smocap, smocap_node_publisher, utils
 def round_pt(p): return (int(p[0]), int(p[1]))
 
 
+
+
+class LossesTrapper:
+    '''
+    Save images and poses upon marker loss
+    '''
+    def __init__(self, img_dir):
+        self.img_dir = img_dir
+        self.lost_log_lock = threading.Lock()
+        self.lost_log = []
+        
+    def record(self, img, pose):
+        img_path = self.img_dir+'/img_{:03d}.png'.format(len(self.lost_log))
+        print 'lost at {} ({})'.format(pose[:3,3], img_path)
+        with self.lost_log_lock:
+            self.lost_log.append(pose[:3,3])
+        cv2.imwrite(img_path, img)
+
+    def stop(self):
+        with open('/tmp/lost_log.npz', 'wb') as f:
+            np.savez(f, self.lost_log)
+
+
+        
+
 class Timer:
     '''
     Records fps, skipped frames and processing duration for every video stream
@@ -93,13 +118,11 @@ class SMoCapNode:
         self.timer = Timer(len(cams))
 
         if self.trap_losses:
-            self.lost_log_lock = threading.Lock()
-            self.lost_log = []
-            self.lost_dir = '/home/poine/work/smocap.git/test/F111_misc/'
+            self.losses_trapper = LossesTrapper('/home/poine/work/smocap.git/test/F111_misc/')
         
         self.smocap = smocap.SMoCap(cams, undistort=True, detector_cfg_path=detector_cfg_path)
 
-        self.smocap.marker.heigth_above_floor = 0.09
+        self.smocap.marker.heigth_above_floor = 0.09#0.15#0.09
 
         self.publisher = smocap_node_publisher.SmocapNodePublisher(self.smocap)
 
@@ -204,22 +227,19 @@ class SMoCapNode:
             self.smocap.detect_marker_in_roi(cv_image, camera_idx)
             self.smocap.identify_marker_in_roi(camera_idx)
             self.smocap.track_marker(camera_idx)
-        except:
+        except smocap.MarkerNotDetectedException:
             if self.trap_losses and self.smocap.marker.observations[camera_idx].tracked: # if we just lost the marker
-                img_path = self.lost_dir+'/img_{:03d}.png'.format(len(self.lost_log))
-                print 'lost at {} ({})'.format(self.smocap.marker.irm_to_world_T[:3,3], img_path)
-                with self.lost_log_lock:
-                    self.lost_log.append(self.smocap.marker.irm_to_world_T[:3,3])
-                    cv2.imwrite(img_path, cv_image)
-                    
+                self.losses_trapper.record(cv_image, self.smocap.marker.irm_to_world_T)
             self.smocap.marker.observations[camera_idx].tracked = False
-            if not any([o.tracked for o in self.smocap.marker.observations]):
-                self.smocap.marker.set_world_pose(None)
+        except smocap.MarkerNotLocalizedException, smocap.MarkerNotInFrustumException:
+            self.smocap.marker.observations[camera_idx].tracked = False
         else:
             self.smocap.marker.observations[camera_idx].tracked = True
             if self.publish_est:
                 self.do_publish_est()
         finally:
+            if not any([o.tracked for o in self.smocap.marker.observations]):
+                self.smocap.marker.set_world_pose(None)
             self.timer.signal_done(camera_idx, rospy.Time.now())
             
     
@@ -234,8 +254,7 @@ class SMoCapNode:
         except rospy.exceptions.ROSInterruptException:
             pass
         if self.trap_losses:
-            with open('/tmp/lost_log.npz', 'wb') as f:
-                np.savez(f, self.lost_log)
+            self.losses_trapper.stop()
         for f in self.frame_searchers:
             f.stop()
 

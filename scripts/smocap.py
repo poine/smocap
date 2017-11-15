@@ -13,9 +13,14 @@ LOG = logging.getLogger('smocap')
 
 def round_pt(p): return (int(p[0]), int(p[1]))
 
-class MyException(Exception):
-    def __init__(self,*args,**kwargs):
-        Exception.__init__(self,*args,**kwargs)
+class MarkerNotDetectedException(Exception):
+    pass
+
+class MarkerNotInFrustumException(Exception):
+    pass
+
+class MarkerNotLocalizedException(Exception):
+    pass
         
 class Detector:
 
@@ -117,6 +122,7 @@ class Observation:
         self.roi = None                # region of interest in wich to look for the marker
         self.centroid_img = None       # coordinates of marker centroid in image frame
         self.tracked = False
+        self.kps_img = None
         
     def set_roi(self, roi):
         self.roi = roi
@@ -129,8 +135,6 @@ class Marker:
     kps_names = ['c', 'l', 'r', 'f']
     
     def __init__(self, nb_cams):
-        self.roi = None                # region of interest in wich to look for the marker
-        self.centroid_img = None       # coordinates of marker centroid in image frame
 
         # Constants:
         #   coordinates of keypoints in marker frame
@@ -153,30 +157,19 @@ class Marker:
         self.heigth_above_floor = _h
         self.irm_to_body_T[2,3] = _h # FIXME!!!! WTF, this is backwards too!!!
         
-    #def set_roi(self, x_lu, y_lu, x_rd, y_rd):
-        #self.roi = slice(y_lu, y_rd), slice(x_lu, x_rd)
-    def set_roi(self, roi):
-        self.roi = roi
-    
+    def set_roi(self, cam_idx, roi):
+        self.observations[cam_idx].set_roi(roi)
         
     def  set_ff_observation(self, cam_idx, roi):
         #print 'setting observation {} {}'.format(cam_idx, roi)
         self.ff_observations[cam_idx].set_roi(roi)
 
     def has_ff_observation(self, cam_idx): return self.ff_observations[cam_idx].roi is not None
-        
 
-    def compute_roi(self, pts_img, cam, margin = 70):
-        x_lu, y_lu = np.min(pts_img, axis=0).squeeze().astype(int)
-        x_rd, y_rd = np.max(pts_img, axis=0).squeeze().astype(int)
-        # print x_lu, y_lu, x_rd, y_rd
-        roi = slice(max(0, y_lu-margin), min(cam.w, y_rd+margin)), slice(max(0, x_lu-margin), min(cam.w, x_rd+margin))
-        return roi
-        
     def is_in_frustum(self, cam):
         pts_img = cam.project(self.pts_world)
         in_frustum = np.all(pts_img > [0, 0]) and np.all(pts_img < [cam.w, cam.h])
-        roi = self.compute_roi(pts_img, cam) if in_frustum else None
+        roi = cam.compute_roi(pts_img) if in_frustum else None
         return in_frustum , roi
     
     def tracking_succeeded(self): return True#self.cam_to_irm_T is not None
@@ -226,10 +219,11 @@ class Camera:
     def project(self, points_world):
         return cv2.projectPoints(points_world, self.world_to_cam_r, self.world_to_cam_t, self.K, self.D)[0]
 
-    def compute_roi(self, marker):
-        ''' Compute RegionOfInterest for a given marker in this camera '''
-        pts_img = self.project(marker.pts_world)
-        roi = marker.compute_roi(pts_img, self)
+    def compute_roi(self, pts_img, margin=70):
+        ''' Compute RegionOfInterest for a set_of_points in this camera '''
+        x_lu, y_lu = np.min(pts_img, axis=0).squeeze().astype(int)
+        x_rd, y_rd = np.max(pts_img, axis=0).squeeze().astype(int)
+        roi = slice(max(0, y_lu-margin), min(self.w, y_rd+margin)), slice(max(0, x_lu-margin), min(self.w, x_rd+margin))
         return roi
     
     
@@ -247,7 +241,6 @@ class SMoCap:
         self.marker = Marker(len(cameras))
         self._keypoints_detected = False
 
-        self.tracking_method = self.track_in_plane
 
          
 
@@ -258,32 +251,37 @@ class SMoCap:
         keypoints, pts_img = self.ff_detectors[cam_idx].detect_ff(img)
         #print('in detect_markers_in_full_frame {} {}'.format(cam_idx, len(pts_img.squeeze())))
         if len(keypoints) == 4: # marker is found, to be adapted...
-            self.marker.set_ff_observation(cam_idx, self.marker.compute_roi(pts_img, self.cameras[cam_idx]))
+            self.marker.set_ff_observation(cam_idx, self.cameras[cam_idx].compute_roi(pts_img))
         else:
             self.marker.set_ff_observation(cam_idx, None)
 
     def has_unlocalized_markers(self):
         return not self.marker.is_localized
 
-
     def detect_marker_in_roi(self, img, cam_idx):
+        ''' called by video stream threads '''
         if self.marker.is_localized:
+            #print 'marker is localized', cam_idx
             in_frustum, roi = self.marker.is_in_frustum(self.cameras[cam_idx])
-            if not in_frustum: return False
-            self.marker.set_roi(self.cameras[cam_idx].compute_roi(self.marker))
+            if not in_frustum:
+                raise MarkerNotInFrustumException
+            self.marker.set_roi(cam_idx, roi)
         elif self.marker.has_ff_observation(cam_idx):
-            self.marker.set_roi(self.marker.ff_observations[cam_idx].roi)
+            #print 'marker has ff obs', cam_idx
+            self.marker.set_roi(cam_idx, self.marker.ff_observations[cam_idx].roi)
         else:
-            raise MyException()
+            raise MarkerNotLocalizedException
         # from here maker has roi
         #print('vid thread, marker has roi in {}'.format(cam_idx))
         #print self.marker.roi
         o = self.marker.observations[cam_idx]
-        o.keypoints, o.kps_img = self.detectors[cam_idx].detect(img, self.marker.roi)    
-        if len(o.keypoints) != 4: raise MyException() # FIXME...
+        o.keypoints, o.kps_img = self.detectors[cam_idx].detect(img, self.marker.observations[cam_idx].roi)    
+        if len(o.keypoints) != 4:
+            raise MarkerNotDetectedException # FIXME...
 
 
     def identify_marker_in_roi(self, cam_idx):
+        
         o = self.marker.observations[cam_idx]
         o.marker_of_kp = np.array([-2, -2, -2, -2])
         # first use distance to discriminate center and front
@@ -347,32 +345,7 @@ class SMoCap:
         self.marker.set_world_pose(world_to_irm_T)
         
     
-    def detect_keypoints(self, img, cam_idx):
-
-        if cam_idx != 0: return
-        # if no Region Of Interest exists yet, set it to full image
-        if self.marker.roi is None:
-            roi = slice(0, self.cameras[cam_idx].h), slice(0, self.cameras[cam_idx].w)
-            self.marker.set_roi(roi)
-            #self.marker.set_roi(0, 0, *img.shape[1::-1])
-        
-        _start = timeit.default_timer()
-        self.keypoints, self.detected_kp_img = self.detectors[cam_idx].detect(img, self.marker.roi)
-        _end = timeit.default_timer()
-        # assume our detection was sucessfull is 4 keypoints were detected
-        self._keypoints_detected = (len(self.detected_kp_img) == 4)
-
-        # if we did not detect 4 keypoints, reset ROI to full image
-        # that sucks as we can not draw anymore :(
-        if not self._keypoints_detected:
-           roi = slice(0, self.cameras[cam_idx].h), slice(0, self.cameras[cam_idx].w)
-           self.marker.set_roi(roi)
-           #self.marker.set_roi(0, 0, *img.shape[1::-1])
-           self.marker.set_world_pose(None)
-
-        self.marker.detection_duration = _end - _start
-        return self.keypoints
-
+   
     def keypoints_detected(self):
         return self._keypoints_detected
 
@@ -420,120 +393,6 @@ class SMoCap:
         self.marker.roi = slice(y1, y2), slice(x1, x2)
 
         
-    def track_foo(self):
-        h, status = cv2.findHomography(self.detected_kp_img[self.kp_of_marker], self.markers_body[:,:2])
-        #h, status = cv2.findHomography(self.markers_body[:,:2], self.detected_kp_img[self.kp_of_marker])
-        #h, status = cv2.findHomography(self.detected_kp_img[self.markers_of_kp], self.markers_body[:,:2])
-        invC = np.linalg.inv(self.K)
-        h1, h2, h3 = h[:,0], h[:,1], h[:,2] 
-        _lambda = 1./np.linalg.norm(np.dot(invC, h1))
-        #_lambda = 1./np.linalg.norm(np.dot(invC, h2))
-        r1 = _lambda*np.dot(invC, h1)
-        r2 = _lambda*np.dot(invC, h2)
-        r3 = np.cross(r1, r2)
-        t = _lambda*np.dot(invC, h3)
-        #pdb.set_trace()
-
-    def track_pnp(self, debug=False):
-        cam_to_irm_t, cam_to_irm_r = utils.tr_of_T(self.marker.cam_to_irm_T)
-        kps_img = self.detected_kp_img[self.kp_of_marker].reshape(4,1,2)
-
-        # projectPoints and solvePnP use irm_to_cam.. .maybe not :(
-        if debug:
-            print(' current cam_to_irm: t {} r {}'.format(cam_to_irm_t, cam_to_irm_r))
-            pm = cv2.projectPoints(self.marker.kps_m, cam_to_irm_r, cam_to_irm_t, self.cameras[0].K, self.cameras[0].D)[0].squeeze()
-            print(' projected markers (current cam_to_irm_r)\n{}'.format(pm))
-            #print('markers\n{}'.format(self.marker.kps_m))
-            print(' detected markers\n{}'.format(kps_img.squeeze()))
-            rep_err = np.mean(np.linalg.norm(pm - kps_img.squeeze(), axis=1))
-            print('reprojection error {:.2f} px'.format(rep_err))
-        # success, r_vec_, t_vec_ = cv2.solvePnP(self.marker.kps_m, kps_img, self.camera.K, self.camera.D, flags=cv2.SOLVEPNP_P3P) # doesn't work...
-        # success, r_vec_, t_vec_ = cv2.solvePnP(self.marker.kps_m, kps_img, self.camera.K, self.camera.D, flags=cv2.SOLVEPNP_EPNP) # doesn't work
-        success, irm_to_cam_r, irm_to_cam_t = cv2.solvePnP(self.marker.kps_m, kps_img, self.cameras[0].K, self.cameras[0].D,
-                                                           np.array([cam_to_irm_r]), np.array([cam_to_irm_t]),
-                                                           useExtrinsicGuess=True, flags=cv2.SOLVEPNP_ITERATIVE)
-        #success, r_vec_, t_vec_ = cv2.solvePnP(self.marker.kps_m, kps_img, self.camera.K, self.camera.D, flags=cv2.SOLVEPNP_DLS) # doesn't work...
-        if debug:
-            print('PnP computed irm_to_cam t {} r {} (in {:.2e}s) '.format(irm_to_cam_t.squeeze(), irm_to_cam_r.squeeze()))
-            pm2 = cv2.projectPoints(self.marker.kps_m, irm_to_cam_r, irm_to_cam_t, self.cameras[0].K, self.cameras[0].D)[0].squeeze()
-            print(' projected markers (new irm_to_cam)\n{}'.format(pm2))
-            rep_err = np.mean(np.linalg.norm(pm2 - kps_img.squeeze(), axis=1))
-            print('reprojection error {:.2f} px'.format(rep_err))
-
-        irm_to_cam_T = utils.T_of_t_r(irm_to_cam_t.squeeze(), irm_to_cam_r) 
-        self.marker.cam_to_irm_T = irm_to_cam_T#np.linalg.inv(irm_to_cam_T)
-       #pdb.set_trace()
-
-
-
-    def track_in_plane(self, cam, verbose=0):
-        ''' This is a tracker using bundle adjustment.
-            Position and orientation are constrained to the floor plane '''
-        kps_img = self.detected_kp_img[self.kp_of_marker]
-
-        def irm_to_cam_T_of_params(params):
-            x, y, theta = params
-            irm_to_world_r, irm_to_world_t = np.array([0., 0, theta]), [x, y, self.marker.heigth_above_floor]
-            irm_to_world_T = utils.T_of_t_r(irm_to_world_t, irm_to_world_r)
-            return np.dot(cam.world_to_cam_T, irm_to_world_T) 
-            
-        def residual(params):
-            irm_to_cam_T = irm_to_cam_T_of_params(params)
-            irm_to_cam_t, irm_to_cam_r = utils.tr_of_T(irm_to_cam_T)
-            projected_kps = cv2.projectPoints(self.marker.kps_m, irm_to_cam_r, irm_to_cam_t, cam.K, cam.D)[0].squeeze()
-            return (projected_kps - kps_img).ravel()
-
-        def params_of_irm_to_world_T(irm_to_world_T):
-            ''' return x,y,theta from irm_to_world transform '''
-            _angle, _dir, _point = tf.transformations.rotation_from_matrix(irm_to_world_T)
-            return (irm_to_world_T[0,3], irm_to_world_T[1,3], _angle)
-
-        p0 =  params_of_irm_to_world_T(self.marker.irm_to_world_T if self.marker.is_localized else np.eye(4)) 
-        res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf')
-        return irm_to_cam_T_of_params(res.x)
-        #self.marker.irm_to_cam_T = irm_to_cam_T_of_params(res.x) ## WTF!!!
-        #self.marker.cam_to_irm_T = np.linalg.inv(self.marker.irm_to_cam_T)
-        
-
-        
-    def track_dumb(self):
-        # this is a dumb tracking to use as baseline
-        m_c_i = self.detected_kp_img[self.kp_of_marker[Marker.kp_id_c]]
-        m_f_i = self.detected_kp_img[self.kp_of_marker[Marker.kp_id_f]]
-
-        if self.undistort:
-            distorted_points = np.array([m_c_i, m_f_i])
-            m_c_i_rect, m_f_i_rect = cv2.undistortPoints(distorted_points.reshape((2,1,2)), self.cameras[0].K, self.cameras[0].D, P=self.cameras[0].K)
-            m_c_i, m_f_i =  m_c_i_rect.squeeze(), m_f_i_rect.squeeze()
-          
-        cf_i = m_f_i - m_c_i
-        yaw = math.atan2(cf_i[1], cf_i[0])
-        self.marker.cam_to_irm_T = tf.transformations.euler_matrix(math.pi, 0, yaw, 'sxyz')
-        m_c_c = np.dot(self.cameras[0].invK, utils.to_homo(m_c_i))
-        self.marker.cam_to_irm_T[:3,3] = m_c_c*(self.cameras[0].cam_to_world_t[2]-0.15)
-        
-
-
-    def track(self):
-        cam = self.cameras[0]
-        _start = timeit.default_timer()
-        irm_to_cam_T = self.tracking_method(cam)
-        _end = timeit.default_timer()
-        self.marker.tracking_duration = _end - _start
-
-        cam_to_irm_T = np.linalg.inv(irm_to_cam_T)
-        marker_world_to_irm_T = np.dot(cam_to_irm_T, cam.world_to_cam_T)
-        #print marker_world_to_irm_T
-        self.marker.set_world_pose(marker_world_to_irm_T)
-            
-
-    def project(self, body_to_world_T):
-        self.markers_world = np.array([np.dot(body_to_world_T, m_b) for m_b in self.markers_body])
-        self.projected_markers_img = cv2.projectPoints(np.array([self.markers_world[:,:3]]),
-                                                       self.cameras[0].world_to_cam_r, np.array(self.cameras[0].world_to_cam_t), self.K, self.D)[0].squeeze()    
-        
-
-
 
     def draw_debug_on_image(self, img, camera_idx, draw_kp_id=True, draw_roi=True):
         if self.cameras[camera_idx].img_encoding == 'mono8':
