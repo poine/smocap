@@ -66,6 +66,7 @@ class Timer:
 class FrameSearcher(threading.Thread):
     '''
     Encapsulates the threads responsible for searching markers in full frames at a lower framerate
+    One for each camera
     '''
     def __init__(self, _cam_idx, _smocap):
         super(FrameSearcher, self).__init__(name='FrameSearcher_{}'.format(_smocap.cameras[_cam_idx].name))
@@ -219,7 +220,7 @@ class SMoCapNode:
         except cv_bridge.CvBridgeError as e:
             print(e)
         
-        if self.smocap.has_unlocalized_markers():
+        if True:#self.smocap.has_unlocalized_markers():
             self.frame_searchers[camera_idx].put_image(cv_image, msg.header.seq)
 
         try:

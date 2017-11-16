@@ -9,6 +9,8 @@ import sklearn.cluster
 import utils
 import pdb
 
+import smocap.shapes
+
 LOG = logging.getLogger('smocap')
 
 def round_pt(p): return (int(p[0]), int(p[1]))
@@ -89,13 +91,6 @@ class Detector:
         y_db = db.fit_predict(Y2)
         return y_db
 
-    def identify_marker(self, kps_img, clusters):
-        nb_markers = np.max(clusters) + 1
-        for i in range(nb_markers):
-            cluster = kps_img[clusters==i]
-            print scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(cluster))
-        #pdb.set_trace()
-    
         
     def load_cfg(self, path):
         with open(path, 'r') as stream:   
@@ -232,28 +227,60 @@ class SMoCap:
     def __init__(self, cameras, undistort, detector_cfg_path):
         LOG.info(' undistort {}'.format( undistort ))
         LOG.info(' detector cfg path {}'.format( detector_cfg_path ))
+
         self.undistort = undistort
+        self.shape_database = shapes.Database()
 
         self.detectors = [Detector(cam.img_encoding, detector_cfg_path) for cam in cameras]
         self.ff_detectors = [Detector(cam.img_encoding, detector_cfg_path) for cam in cameras]
         self.cameras = cameras
 
-        self.marker = Marker(len(cameras))
+        nb_cams = len(cameras) 
+        self.markers = [Marker(nb_cams) for i in range(len(self.shape_database.shapes))]
+        self.marker = Marker(nb_cams)
         self._keypoints_detected = False
-
 
          
 
     def detect_markers_in_full_frame(self, img, cam_idx):
         '''
-        Called by frame sercher thread
+        Called by frame searcher thread
         '''
         keypoints, pts_img = self.ff_detectors[cam_idx].detect_ff(img)
-        #print('in detect_markers_in_full_frame {} {}'.format(cam_idx, len(pts_img.squeeze())))
+        if len(pts_img) > 0:
+            clusters_id = self.ff_detectors[cam_idx].cluster_keypoints(pts_img)
+            clusters_nb = np.max(clusters_id) + 1
+            clusters = [pts_img[clusters_id == i] for i in range(clusters_nb)]
+            #print('in detect_markers_in_full_frame cam {} ( {} keypoints -> {} clusters )'.format(cam_idx, len(pts_img.squeeze()), clusters_nb))
+            shapes = [smocap.shapes.Shape(c) for c in clusters]
+            identified_shapes = [self.shape_database.find(s) for s in shapes]
+            found_shapes_ids = [ids[0] for ids in identified_shapes]
+            
+            if 0:
+                for id_cluster,( cluster, shape, (id_shape, ref_shape)) in enumerate(zip(clusters, shapes, identified_shapes)):
+                    if id_shape >= 0:
+                        print('found shape #{}  in cluster #{} at {} {:.2f}'.format(id_shape, id_cluster, shape.Xc, shape.theta))
+                    else:
+                        print('cluster #{} not matched to any known shape'.format(id_cluster))
+        else:
+            found_shapes_ids = []
+
+        # old single marker code
         if len(keypoints) == 4: # marker is found, to be adapted...
             self.marker.set_ff_observation(cam_idx, self.cameras[cam_idx].compute_roi(pts_img))
         else:
             self.marker.set_ff_observation(cam_idx, None)
+        #
+        
+        for idx_marker, marker in enumerate(self.markers):
+            try:
+                idx_shape = found_shapes_ids.index(idx_marker)
+                marker.set_ff_observation(cam_idx, self.cameras[cam_idx].compute_roi(shapes[idx_shape].pts))
+            except ValueError:
+                marker.set_ff_observation(cam_idx, None)                
+
+
+            
 
     def has_unlocalized_markers(self):
         return not self.marker.is_localized
@@ -353,45 +380,6 @@ class SMoCap:
         return True
      
     
-    def identify_keypoints(self):
-        ''' naive identification of markers '''
-        if len(self.detected_kp_img) != 4: return
-        self.marker_of_kp = np.array([-2, -2, -2, -2])
-        # first use distance to discriminate center and front
-        dists = np.zeros((4, 4))
-        for i in range(4):
-            for j in range(4):
-                dists[i, j] = np.linalg.norm(self.detected_kp_img[i]- self.detected_kp_img[j])
-        #print('dists {}'.format(dists))
-        sum_dists = np.sum(dists, axis=1)
-        #print('sum dists {}'.format(sum_dists))
-        sorted_idx = np.argsort(sum_dists)
-        #print sorted_idx
-        self.marker_of_kp[sorted_idx[0]] = Marker.kp_id_c #self.marker_c
-        self.marker_of_kp[sorted_idx[1]] = Marker.kp_id_f #self.marker_f
-        # now use vector product to discriminate right and left
-        cf = self.detected_kp_img[sorted_idx[1]] - self.detected_kp_img[sorted_idx[0]]
-        c2 = self.detected_kp_img[sorted_idx[2]] - self.detected_kp_img[sorted_idx[0]]
-        #c3 = self.detected_kp_img[sorted_idx[3]] - self.detected_kp_img[sorted_idx[0]]
-        def vprod(a, b): return a[0]*b[1]-a[1]*b[0]
-        s2 = vprod(cf, c2)
-        #s3 = vprod(cf, c3)
-        #print 's2 s3', s2, s3
-        if s2 > 0:
-            self.marker_of_kp[sorted_idx[2]] = Marker.kp_id_r
-            self.marker_of_kp[sorted_idx[3]] = Marker.kp_id_l
-        else:
-            self.marker_of_kp[sorted_idx[2]] = Marker.kp_id_l
-            self.marker_of_kp[sorted_idx[3]] = Marker.kp_id_r
-        self.kp_of_marker = np.argsort(self.marker_of_kp)
-        #print self.marker_of_kp
-        # for now just use center point
-        self.marker.centroid_img = self.detected_kp_img[self.kp_of_marker[Marker.kp_id_c]]
-        w = 75
-        x1, x2 = int(max(self.marker.centroid_img[0]-w, 0)), int(min(self.marker.centroid_img[0]+w, self.cameras[0].w))
-        y1, y2 = int(max(self.marker.centroid_img[1]-w, 0)), int(min(self.marker.centroid_img[1]+w, self.cameras[0].h))
-        self.marker.roi = slice(y1, y2), slice(x1, x2)
-
         
 
     def draw_debug_on_image(self, img, camera_idx, draw_kp_id=True, draw_roi=True):
