@@ -41,6 +41,7 @@ class Marker():
 
     def cm_analysis(self):
         ''' WTF!!!! '''
+        #print('mus {}'.format(self.mus))
         argmus = np.angle(self.mus)
         def get_angle(k, m):
             arg_muk, arg_mum = argmus[k-1], argmus[m-1]
@@ -48,20 +49,26 @@ class Marker():
             LOG.debug('foo {}'.format(foo))
             l = 0
             while l < k:
-                bar = norm_angle(foo - 2*math.pi/k*l)
+                bar = norm_angle(foo - 2.*math.pi/k*l)
                 if bar > -math.pi/k and bar <= math.pi/k:
                     break
                 l+=1
             LOG.debug('l {}'.format(l))
-            LOG.debug('theta {}-{}: {}'.format(k, m,  arg_muk/k + 2*math.pi/k*l))
-            return arg_muk/k + 2*math.pi/k*l
-        self.theta = get_angle(2, 3)
+            theta = arg_muk/k + 2.*math.pi/k*l
+            LOG.debug('theta {}-{}: {}'.format(k, m, theta ))
+            #print ('get angle {}-{}: {}'.format(k, m, theta))
+            return theta
+        get_angle(2, 3)
+        get_angle(3, 2)
+        self.theta = get_angle(3, 4)
+        get_angle(5, 2)
+        get_angle(5, 3)
 
 
 def plot_marker(m, label_points=True):
     margins = (0.08, 0.06, 0.97, 0.95, 0.15, 0.33)
     fig = plt.figure(figsize=(10.24, 10.24))
-    fig.canvas.set_window_title(m.name)#utils.prepare_fig(window_title='{}'.format(m.name), figsize=(10.24, 10.24), margins=margins)
+    fig.canvas.set_window_title(m.name)
 
     ax = plt.subplot(1,2,1)
     plt.scatter(m.pts[:,0], m.pts[:,1])
@@ -99,12 +106,12 @@ def transform_points(_pts, _trans=[0., 0.], _rot=0., _scale=1., _noise=0., _perm
     _pts5 = permutation(_pts4) if _permutation else _pts4
     return _pts5
 
-def test_rotation(_angle, _pts, _id):
+def test_rotation(_angle, _pts, _id, plot=True):
     _m1 = Marker(_pts, _id)
     _m1.normalize()
     _m1.compute_cms()
     _m1.cm_analysis()
-    plot_marker(_m1)
+    if plot: plot_marker(_m1)
 
     _ptsbis = transform_points(_pts, _trans=[0., 0.], _rot=_angle, _scale=1., _noise=0., _permutation=False)
 
@@ -112,14 +119,14 @@ def test_rotation(_angle, _pts, _id):
     _m1prim.normalize()
     _m1prim.compute_cms()
     _m1prim.cm_analysis()
-    plot_marker(_m1prim)
+    if plot: plot_marker(_m1prim)
 
-    print 'rotation: computed {} truth {}'.format( _m1prim.theta - _m1.theta, _angle )
+    print 'rotation: computed {} truth {}'.format( norm_angle(_m1prim.theta - _m1.theta), norm_angle(_angle) )
     
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     np.set_printoptions(precision=4, linewidth=300, suppress=True)
 
-    for angle in np.linspace(-0.2, 0.2, 5):
-        test_rotation(angle, m1, "m1")
+    for angle in np.linspace(-4, 4, 400):
+        test_rotation(angle, m0, "m0", plot=False)
     plt.show()
