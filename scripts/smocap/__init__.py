@@ -280,8 +280,6 @@ class SMoCap:
                 marker.set_ff_observation(cam_idx, None)                
 
 
-            
-
     def has_unlocalized_markers(self):
         return not self.marker.is_localized
 
@@ -376,12 +374,11 @@ class SMoCap:
     def keypoints_detected(self):
         return self._keypoints_detected
 
+
     def keypoints_identified(self):
         return True
-     
-    
-        
 
+    
     def draw_debug_on_image(self, img, camera_idx, draw_kp_id=True, draw_roi=True):
         if self.cameras[camera_idx].img_encoding == 'mono8':
             debug_img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB) # make a copy of image, insuring it is a color one

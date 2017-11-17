@@ -49,6 +49,15 @@ class Shape:
         #print ('normalized mus: {}'.format(self.nmus))
 
 
+    def sort_points(self):
+        self.zs_r_normalized = [z*complex(math.cos(-self.theta), math.sin(-self.theta)) for z in self.zsk[0]]
+        self.args_zs_r_normalized = np.angle(self.zs_r_normalized)
+        print self.zs_r_normalized
+        print self.args_zs_r_normalized
+        self.angle_sort_idx = np.argsort(self.args_zs_r_normalized)
+        print self.angle_sort_idx
+        self.zs_sorted = self.zsk[0, self.angle_sort_idx]
+        print 'sorted zs ', self.zs_sorted
 
 class Database:
 

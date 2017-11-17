@@ -183,9 +183,9 @@ class Marker():
             print 'l', l
             print('theta {}-{}: {}'.format(k, m,  arg_muk/k + 2*math.pi/k*l))
             return arg_muk/k + 2*math.pi/k*l
-        self.theta = get_angle(2, 3)
-        get_angle(3, 4)
-        get_angle(4, 5)
+        self.theta = get_angle(3, 2)
+        get_angle(4, 3)
+        get_angle(5, 4)
         print (' theta {}'.format(self.theta))
         self.emjtheta = complex(math.cos(-self.theta), math.sin(-self.theta))
         self.nmus = np.array([mu*complex(math.cos(-(i+1)*self.theta), math.sin(-(i+1)*self.theta)) for i, mu in enumerate(self.mus)]) # rotation normalized moments
@@ -378,7 +378,7 @@ if __name__ == "__main__":
         test_foo(mdb, ms[0])
     if 1:
         #ms = get_markers_in_image(img_name='2_markers_diff_01.png', img_enc='mono8')
-        test_rotation(0.1, m1, "m1")
+        test_rotation(0.2, m1, "m1")
         #test_rotation(0.1, m9, "m9")
         
     plt.show()

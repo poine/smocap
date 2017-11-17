@@ -35,8 +35,34 @@ def get_clusters_in_image(img_name='2_markers_diff_01.png', img_enc='mono8'):
     return td.cluster_blobs(), td
 
 
+def plot_shape(m, label_points=True):
+    margins = (0.08, 0.06, 0.97, 0.95, 0.15, 0.33)
+    fig = plt.figure(figsize=(10.24, 10.24))
+    fig.canvas.set_window_title(m.name)
+
+    ax = plt.subplot(1,2,1)
+    plt.scatter(m.pts[:,0], m.pts[:,1])
+    plt.scatter(m.Xc[0], m.Xc[1], color='r')
+    if label_points:
+        for i, p in enumerate(m.pts):
+            ax.text(p[0], p[1], '{}'.format(i))
+    plt.plot(m.pts[:,0], m.pts[:,1])
+    ax.set_title('original')
+    ax.set_aspect('equal')
+
+    ax = plt.subplot(1,2,2)
+    n_pts = m.pts_cs
+    plt.scatter(n_pts[:,0], n_pts[:,1])
+    plt.scatter(0, 0, color='r')
+    if label_points:
+        for i, p in enumerate(n_pts):
+            ax.text(p[0], p[1], '{}'.format(i))
+    ax.set_title('trans-scale normalized')
+    ax.set_aspect('equal')
+
+    
 def test_1(db):
-    ''' transform a marker from the database and searches it '''
+    ''' transform a marker from the database and search it '''
     m_x = db.shapes[1]
     pts_x = transform_points(m_x.pts, _trans=[1., 0.], _rot=0.5, _scale=2., _noise=0., _permutation=False)
     s_x = smocap.shapes.Shape(pts_x)
@@ -61,6 +87,22 @@ def test_2(db):
         plt.arrow(xc[0], xc[1], dx[0], dx[1], ec='r', width=0.1)
         plt.text(xc[0], xc[1], "{}".format(id_sx), family='monospace', color='r')
     plt.show()
+
+
+def test_3(db):
+    ''' sorting '''
+    s_1 = db.shapes[1]
+    s_1.sort_points()
+    s_1.name = "s1"
+    plot_shape(s_1)
+
+    pts2 = transform_points(s_1.pts, _trans=[1., 0.], _rot=0.5, _scale=2., _noise=0., _permutation=True)
+    s_2 = smocap.shapes.Shape(pts2)
+    s_2.compute_signature()
+    s_2.sort_points()
+    s_2.name = "s2"
+    plot_shape(s_2)
+    plt.show()
     
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -68,4 +110,5 @@ if __name__ == "__main__":
     db = smocap.shapes.Database()
     
     #test_1(db)
-    test_2(db)
+    #test_2(db)
+    test_3(db)
