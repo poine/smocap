@@ -1,0 +1,24 @@
+point_00:
+  world: 0., 0., 0
+  img: 23, 728
+point_01:
+  world: 0., 1.22, 0
+  img: 87, 17
+point_02:
+  world: 2.5, 0., 0
+  img: 1585, 732
+point_03:
+  world: 2.5, 1.22, 0
+  img: 1521, 9
+point_04:
+  world: 1.25, 0., 0
+  img: 797, 740
+point_05:
+  world: 1.25, 0.61, 0
+  img: 798, 358
+point_06:
+  world: 1.25, 1.22, 0
+  img: 797, 2
+point_07:
+  world: 0.7, 0.61, 0
+  img: 459, 357  

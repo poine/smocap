@@ -40,10 +40,15 @@ def main(args):
         image_path =  '../test/F111/f111_cam_1_floor_01.png'
         camera_path = '../test/F111/ueye_enac_ceiling_1_6mm.yaml'
         points_path = '../test/F111/ueye_enac_ceiling_1_extrinsic_points.yaml'
-    else:
+    if 0:
         image_path =  '../test/F111/f111_cam_2_floor_01.png'
         camera_path = '../test/F111/ueye_enac_ceiling_2_6mm.yaml'
         points_path = '../test/F111/ueye_enac_ceiling_2_extrinsic_points.yaml'
+    if 1:
+        image_path =  '../test/enac_bench/floor.png'
+        camera_path = '../params/enac_demo_bench/ueye_enac_ceiling_3.yaml'
+        points_path = '../test/enac_bench/floor_extrinsic_points.yaml'
+
         
         
     img = cv2.imread(image_path)
@@ -63,12 +68,12 @@ def main(args):
     rep_err = np.mean(np.linalg.norm(pts_img - rep_pts_img, axis=1))
     print 'reprojection error {} px'.format(rep_err)
 
-    world_to_cam_T = utils.T_of_t_r(translation_vector.squeeze(), rotation_vector)
-    world_to_cam_t, world_to_cam_q = utils.tq_of_T(world_to_cam_T)
+    world_to_cam_T = smocap.utils.T_of_t_r(translation_vector.squeeze(), rotation_vector)
+    world_to_cam_t, world_to_cam_q = smocap.utils.tq_of_T(world_to_cam_T)
     print(' world_to_cam_t {} world_to_cam_q {}'.format(world_to_cam_t, world_to_cam_q))
 
     cam_to_world_T = np.linalg.inv(world_to_cam_T)
-    cam_to_world_t, cam_to_world_q = utils.tq_of_T(cam_to_world_T)
+    cam_to_world_t, cam_to_world_q = smocap.utils.tq_of_T(cam_to_world_T)
     print(' cam_to_world_t {} cam_to_world_q {}'.format(cam_to_world_t, cam_to_world_q))
 
     

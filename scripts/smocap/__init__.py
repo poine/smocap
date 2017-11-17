@@ -116,11 +116,18 @@ class Observation:
     def __init__(self):
         self.roi = None                # region of interest in wich to look for the marker
         self.centroid_img = None       # coordinates of marker centroid in image frame
+        self.orientation = None        # orientation of the shape
         self.tracked = False
         self.kps_img = None
         
     def set_roi(self, roi):
         self.roi = roi
+
+    def set_centroid(self, centroid):
+        self.centroid = centroid
+
+    def set_orientation(self, orientation):
+        self.orientation = orientation
 
         
 class Marker:
@@ -155,9 +162,12 @@ class Marker:
     def set_roi(self, cam_idx, roi):
         self.observations[cam_idx].set_roi(roi)
         
-    def  set_ff_observation(self, cam_idx, roi):
+    def  set_ff_observation(self, cam_idx, roi, centroid, orientation):
         #print 'setting observation {} {}'.format(cam_idx, roi)
         self.ff_observations[cam_idx].set_roi(roi)
+        self.ff_observations[cam_idx].set_centroid(centroid)
+        self.ff_observations[cam_idx].set_orientation(orientation)
+        
 
     def has_ff_observation(self, cam_idx): return self.ff_observations[cam_idx].roi is not None
 
@@ -242,7 +252,7 @@ class SMoCap:
 
          
 
-    def detect_markers_in_full_frame(self, img, cam_idx):
+    def detect_markers_in_full_frame(self, img, cam_idx, stamp):
         '''
         Called by frame searcher thread
         '''
@@ -267,22 +277,94 @@ class SMoCap:
 
         # old single marker code
         if len(keypoints) == 4: # marker is found, to be adapted...
-            self.marker.set_ff_observation(cam_idx, self.cameras[cam_idx].compute_roi(pts_img))
+            self.marker.set_ff_observation(cam_idx, self.cameras[cam_idx].compute_roi(pts_img), None, None)
         else:
-            self.marker.set_ff_observation(cam_idx, None)
+            self.marker.set_ff_observation(cam_idx, None, None, None)
         #
         
         for idx_marker, marker in enumerate(self.markers):
             try:
                 idx_shape = found_shapes_ids.index(idx_marker)
-                marker.set_ff_observation(cam_idx, self.cameras[cam_idx].compute_roi(shapes[idx_shape].pts))
-            except ValueError:
-                marker.set_ff_observation(cam_idx, None)                
+                roi = self.cameras[cam_idx].compute_roi(shapes[idx_shape].pts, margin=70)
+                marker.set_ff_observation(cam_idx, roi, shapes[idx_shape].Xc, shapes[idx_shape].theta)
+            except ValueError: # idx_marker was not in found_shapes_ids
+                marker.set_ff_observation(cam_idx, None, None, None)                
 
 
     def has_unlocalized_markers(self):
         return not self.marker.is_localized
 
+
+    def detect_marker_in_roi2(self, img, cam_idx, stamp, marker_id):
+        marker = self.markers[marker_id]
+        obs = marker.observations[cam_idx]
+        if marker.is_localized:
+            # use previous position (or predicted...) to find roi
+            in_frustum, roi = marker.is_in_frustum(self.cameras[cam_idx])
+            if not in_frustum:
+                raise MarkerNotInFrustumException
+            marker.set_roi(cam_idx, roi)
+            #print 'localized'
+        elif marker.has_ff_observation(cam_idx):
+            # use full frame detection - might be old...
+            #print 'ff localized'
+            marker.set_roi(cam_idx, marker.ff_observations[cam_idx].roi)
+        else:
+            raise MarkerNotLocalizedException    
+
+        #print marker_id, obs.roi
+
+        obs.keypoints, obs.kps_img = self.detectors[cam_idx].detect(img, obs.roi)   
+        #print obs.kps_img
+        shape = smocap.shapes.Shape(obs.kps_img)
+        shape_id, shape_ref = self.shape_database.find(shape)
+        if shape_id == -1:
+            raise MarkerNotDetectedException
+        shape.sort_points()
+        #print shape.pts[shape.angle_sort_idx]
+        #print shape_ref.pts[shape.angle_sort_idx]
+        obs.keypoints_img_sorted = shape.pts[shape.angle_sort_idx]
+        obs.keypoints_marker_sorted = shape_ref.pts[shape_ref.angle_sort_idx]
+
+        
+    def track_marker2(self, marker, cam_idx, verbose=0):
+        ''' This is a tracker using bundle adjustment.
+            Position and orientation are constrained to the floor plane '''
+        cam = self.cameras[cam_idx]
+        observation = marker.observations[cam_idx]
+        pts_marker = np.zeros((len(observation.keypoints_marker_sorted), 3))
+        for i in range(len(pts_marker)):
+            pts_marker[i, :2] = observation.keypoints_marker_sorted[i]
+        
+        
+        def irm_to_cam_T_of_params(params):
+            x, y, theta = params
+            irm_to_world_r, irm_to_world_t = np.array([0., 0, theta]), [x, y, marker.heigth_above_floor]
+            irm_to_world_T = utils.T_of_t_r(irm_to_world_t, irm_to_world_r)
+            return np.dot(cam.world_to_cam_T, irm_to_world_T) 
+            
+        def residual(params):
+            irm_to_cam_T = irm_to_cam_T_of_params(params)
+            irm_to_cam_t, irm_to_cam_r = utils.tr_of_T(irm_to_cam_T)
+            projected_kps = cv2.projectPoints(pts_marker, irm_to_cam_r, irm_to_cam_t, cam.K, cam.D)[0].squeeze()
+            return (projected_kps - observation.keypoints_img_sorted).ravel()
+
+        def params_of_irm_to_world_T(irm_to_world_T):
+            ''' return x,y,theta from irm_to_world transform '''
+            _angle, _dir, _point = tf.transformations.rotation_from_matrix(irm_to_world_T)
+            return (irm_to_world_T[0,3], irm_to_world_T[1,3], _angle)
+
+        p0 =  params_of_irm_to_world_T(self.marker.irm_to_world_T if self.marker.is_localized else np.eye(4)) 
+        res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf')
+        #return irm_to_cam_T_of_params(res.x) 
+        irm_to_cam_T = irm_to_cam_T_of_params(res.x)
+        cam_to_irm_T = np.linalg.inv(irm_to_cam_T)
+        world_to_irm_T = np.dot(cam_to_irm_T, cam.world_to_cam_T)
+        marker.set_world_pose(world_to_irm_T)
+    
+
+
+        
     def detect_marker_in_roi(self, img, cam_idx):
         ''' called by video stream threads '''
         if self.marker.is_localized:
@@ -300,7 +382,7 @@ class SMoCap:
         #print('vid thread, marker has roi in {}'.format(cam_idx))
         #print self.marker.roi
         o = self.marker.observations[cam_idx]
-        o.keypoints, o.kps_img = self.detectors[cam_idx].detect(img, self.marker.observations[cam_idx].roi)    
+        o.keypoints, o.kps_img = self.detectors[cam_idx].detect(img, o.roi)    
         if len(o.keypoints) != 4:
             raise MarkerNotDetectedException # FIXME...
 

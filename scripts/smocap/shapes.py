@@ -52,13 +52,16 @@ class Shape:
     def sort_points(self):
         self.zs_r_normalized = [z*complex(math.cos(-self.theta), math.sin(-self.theta)) for z in self.zsk[0]]
         self.args_zs_r_normalized = np.angle(self.zs_r_normalized)
-        print self.zs_r_normalized
-        print self.args_zs_r_normalized
+        #print self.zs_r_normalized
+        #print self.args_zs_r_normalized
         self.angle_sort_idx = np.argsort(self.args_zs_r_normalized)
-        print self.angle_sort_idx
+        #print self.angle_sort_idx
         self.zs_sorted = self.zsk[0, self.angle_sort_idx]
-        print 'sorted zs ', self.zs_sorted
+        #print 'sorted zs ', self.zs_sorted
 
+
+
+        
 class Database:
 
     def __init__(self):
@@ -66,7 +69,8 @@ class Database:
         m1  = np.array([[0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]])
         self.shapes = [Shape(m0), Shape(m1)]
         for s in self.shapes:
-            s.compute_signature()
+        #    s.compute_signature()
+            s.sort_points()
         self.sigs = [s.nmus for s in self.shapes]
 
     def find(self, sx):

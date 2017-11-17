@@ -5,16 +5,22 @@
   <arg name="camera_name" default="ueye_enac_ceiling_1_6mm" />
   <arg name="camera_id" default="128" />
   <arg name="cam_nodelet_id" default="1" />
+  <arg name="camera_intrinsics_file" default="" />
+  <arg name="camera_parameters_file" default="" />
+  <arg name="camera_parameters_file_alt" default="" /> <!-- can't get .ini to work, they get overwritten with stupid defaults :( -->
   
   <node pkg="nodelet" type="nodelet" name="ueye_cam_nodelet_$(arg cam_nodelet_id)"
-        args="load ueye_cam/ueye_cam_nodelet $(arg nodelet_manager_name)">
+        args="load ueye_cam/ueye_cam_nodelet $(arg nodelet_manager_name)" output="screen" >
+
     <param name="camera_name" type="str" value="$(arg camera_name)" />
     <param name="camera_topic" type="str" value="image_raw" />
     <param name="camera_id" type="int" value="$(arg camera_id)" />
-    <param name="camera_intrinsics_file" type="string" value="" />
-    <param name="camera_parameters_file" type="string" value="" />
+    <param name="camera_intrinsics_file" type="string" value="$(arg camera_intrinsics_file)" />
+    <param name="camera_parameters_file" type="string" value="$(arg camera_parameters_file)" />
     <param name="ext_trigger_mode" type="bool" value="False" /> 
 
+    <rosparam command="load" file="$(arg camera_parameters_file_alt)" />
+    <!--
     <param name="color_mode" type="str" value="mono8" />
 
     <param name="image_width" type="int" value="1600" />
@@ -23,11 +29,12 @@
     <param name="auto_gain" type="bool" value="True" />
 
     <param name="auto_exposure" type="bool" value="False" />
-    <param name="exposure" type="int" value="8" /><!-- in ms -->
+    <param name="exposure" type="int" value="8" />
 
-    <param name="frame_rate" type="double" value="30.41" /> <!-- 60 -->
+    <param name="frame_rate" type="double" value="30.41" />
 
-    <param name="pixel_clock" type="int" value="64" /> <!-- 128 -->
-  </node>
+    <param name="pixel_clock" type="int" value="64" /> 
+    -->
+</node>
 
 </launch>

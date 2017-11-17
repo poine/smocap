@@ -97,8 +97,10 @@ class SmocapNodePublisher:
         for i, m in enumerate(_smocap.markers):
             txt += ' marker {}:\n'.format(i)
             txt += '   full frame observations: {}\n'.format([o.roi is not None for o in m.ff_observations] )
-
-
+            txt += '   tracked {}\n'.format([o.tracked for o in m.observations])
+            t_w_to_m = ' '.join(['{:6.3f}'.format(p) for p in m.world_to_irm_T[:3,3]])
+            a_w_to_m = math.atan2(m.world_to_irm_T[0,1], m.world_to_irm_T[0,0])
+            txt += '   pose {} m {:5.2f} deg\n'.format(t_w_to_m, utils.deg_of_rad(a_w_to_m))
         self.status_pub.publish(txt)
 
     def publish_test(self, _smocap):

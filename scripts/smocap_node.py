@@ -74,25 +74,29 @@ class FrameSearcher(threading.Thread):
         self.smocap = _smocap
         self.condition = threading.Condition()
         self._quit = False
-        self.work = None
+        # the processed image
+        self.seq = None
+        self.img = None
+        self.stamp = None
         
     def run(self):
         while not self._quit:
             with self.condition:
                 self.condition.wait()
-                if self.work is not None:
-                    #print 'working '+ self.name + " " + str(self.work)
-                    self.smocap.detect_markers_in_full_frame(self.img, self.cam_idx)
-                    self.work = None
+                if self.seq is not None:
+                    #print 'working '+ self.name + " " + str(self.seq)
+                    self.smocap.detect_markers_in_full_frame(self.img, self.cam_idx, self.stamp)
+                    self.seq = None # indicates image has been processed
                 elif self._quit:
                     return
             
-    def put_image(self, img, seq):
+    def put_image(self, img, seq, stamp):
         if not self.condition.acquire(blocking=False):
             return
         else:
-            self.work = seq
+            self.seq = seq
             self.img = np.copy(img)
+            self.stamp = stamp
             self.condition.notify()
             self.condition.release()
         
@@ -221,8 +225,25 @@ class SMoCapNode:
             print(e)
         
         if True:#self.smocap.has_unlocalized_markers():
-            self.frame_searchers[camera_idx].put_image(cv_image, msg.header.seq)
+            self.frame_searchers[camera_idx].put_image(cv_image, msg.header.seq, msg.header.stamp)
 
+        if 1: # track all markers... soon!
+            for marker_id, marker in enumerate(self.smocap.markers):
+                try:
+                    self.smocap.detect_marker_in_roi2(cv_image, camera_idx, msg.header.stamp, marker_id)
+                    self.smocap.track_marker2(marker, camera_idx)
+                except smocap.MarkerNotInFrustumException:
+                    marker.observations[camera_idx].tracked = False
+                    print 'not in frustum'
+                except smocap.MarkerNotDetectedException:
+                    marker.observations[camera_idx].tracked = False
+                    print 'not detetcted'
+                except smocap.MarkerNotLocalizedException:
+                    marker.observations[camera_idx].tracked = False
+                    #print 'not localized'
+                else:
+                    marker.observations[camera_idx].tracked = True 
+            
         try:
             self.timer.signal_start(camera_idx, msg.header.stamp, msg.header.seq)
             self.smocap.detect_marker_in_roi(cv_image, camera_idx)

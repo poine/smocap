@@ -1,6 +1,10 @@
 <?xml version="1.0"?>
 <launch>
-
+  <!--
+  <env name="ROSCONSOLE_CONFIG_FILE"
+       value="$(find smocap)/params/enac_demo_bench/custom_rosconsole.conf"/>
+  -->
+  
   <arg name="camera1_name" value="ueye_enac_ceiling_3" />
   <arg name="camera1_id"   value="130" />
 
@@ -12,21 +16,24 @@
   <include file="$(find smocap)/launch/ueye_cam.launch">
     <arg name="camera_name" value="$(arg camera1_name)"/>
     <arg name="camera_id" value="$(arg camera1_id)"/>
+    <arg name="camera_parameters_file" value="$(find smocap)/params/enac_demo_bench/cam_conf.ini"/>
+    <arg name="camera_parameters_file_alt" value="$(find smocap)/params/enac_demo_bench/cam_conf.yaml"/>
     <arg name="cam_nodelet_id" value="1"/>
     <arg name="nodelet_manager_name" value="$(arg nodelet_manager_name)"/>
   </include>
   <!---->
 
   <!-- spawn marker localization node -->
+
   <node name="smocap_node" pkg="smocap" type="smocap_node.py">
     <param name="publish_image"   type="bool"   value="true"  />
     <param name="publish_est"     type="bool"   value="true" />
     <param name="cameras"         type="string" value="$(arg camera1_name)"/>
     <param name="img_encoding"    type="string" value="mono8"  />
     <param name="detector_cfg_path" type="String"    value="$(find smocap)/params/f111_detector_default.yaml" />
-    <param name="trap_losses"      type="bool"   value="true" />
+    <param name="trap_losses"      type="bool"   value="false" />
   </node>
-
+  
   <!-- spawn static transform publishers
          - world to camera_link
          - camera_link to camera_optical_frame
@@ -34,8 +41,13 @@
   -->
   <!-- again something fishy here: this is cam to world but i send it as world to cam -->
 
+  <!--
   <node  name="cam1_optical_frame_to_world_frame_publisher" pkg="tf" type="static_transform_publisher"
-         args="1.36602556  1.77145808  2.87497458  0.70733819 -0.70683061 -0.00752713 -0.00255303 world $(arg camera1_name)_optical_frame 100"/>
+         args="1.16041188  1.2  2.69328398  0.99431623  0.00108767 -0.02051618  0.10446596 world $(arg camera1_name)_optical_frame 100"/>
+  -->
+  
+  <node  name="cam1_optical_frame_to_world_frame_publisher" pkg="tf" type="static_transform_publisher"
+         args="1.26971317  0.08658228  2.72126071  0.99432882  0.00107689 -0.02030647 -0.10438722 world $(arg camera1_name)_optical_frame 100"/>
 
   <node  name="cam1_optical_frame_to_cam_link_publisher" pkg="tf" type="static_transform_publisher"
 	 args="0 0 0 0.5 -0.5 0.5 0.5 $(arg camera1_name)_optical_frame $(arg camera1_name)_link 50"/>
