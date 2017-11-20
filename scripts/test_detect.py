@@ -298,11 +298,12 @@ if __name__ == '__main__':
         'image_path':'/home/poine/work/smocap.git/test/f111_cam1_detect_fail.png',
         'image_encoding':'mono8'
     }
-    args = {
-        'detector_cfg':'/home/poine/work/smocap.git/params/gazebo_detector_cfg.yaml',
-        'image_path':'/home/poine/work/smocap.git/test/image_11.png',
-        'image_encoding':'bgr8'
-    }
+    if 0:
+        args = {
+            'detector_cfg':'/home/poine/work/smocap.git/params/gazebo_detector_cfg.yaml',
+            'image_path':'/home/poine/work/smocap.git/test/image_11.png',
+            'image_encoding':'bgr8'
+        }
     App(**args).run()
 
 

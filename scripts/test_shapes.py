@@ -40,7 +40,7 @@ def plot_shape(m, label_points=True):
     fig = plt.figure(figsize=(10.24, 10.24))
     fig.canvas.set_window_title(m.name)
 
-    ax = plt.subplot(1,2,1)
+    ax = plt.subplot(2,2,1)
     plt.scatter(m.pts[:,0], m.pts[:,1])
     plt.scatter(m.Xc[0], m.Xc[1], color='r')
     if label_points:
@@ -50,7 +50,7 @@ def plot_shape(m, label_points=True):
     ax.set_title('original')
     ax.set_aspect('equal')
 
-    ax = plt.subplot(1,2,2)
+    ax = plt.subplot(2,2,2)
     n_pts = m.pts_cs
     plt.scatter(n_pts[:,0], n_pts[:,1])
     plt.scatter(0, 0, color='r')
@@ -60,6 +60,29 @@ def plot_shape(m, label_points=True):
     ax.set_title('trans-scale normalized')
     ax.set_aspect('equal')
 
+    ax = plt.subplot(2,2,3)
+    pts_rotated = rotate(m.pts_cs, -m.theta)
+    plt.scatter(pts_rotated[:,0], pts_rotated[:,1])
+    plt.scatter(0, 0, color='r')
+    if label_points:
+        for i, p in enumerate(pts_rotated):
+            ax.text(p[0], p[1], '{}'.format(i))
+    ax.set_title('rot normalized')
+    ax.set_aspect('equal')
+    
+    ax = plt.subplot(2,2,4)
+    foo = np.array(m.zs_r_normalized)[m.angle_sort_idx]
+    plt.scatter(foo.real, foo.imag)
+    plt.scatter(0, 0, color='r')
+    for i, p in enumerate(foo):
+        ax.text(p.real, p.imag, '{}'.format(i))
+
+        
+    ax.set_title('sorted')
+    ax.set_aspect('equal')
+    
+
+    
     
 def test_1(db):
     ''' transform a marker from the database and search it '''
@@ -91,18 +114,28 @@ def test_2(db):
 
 def test_3(db):
     ''' sorting '''
-    s_1 = db.shapes[1]
-    s_1.sort_points()
+    s_1 = db.shapes[0]
+    #s_1.sort_points() done in db constructor
     s_1.name = "s1"
     plot_shape(s_1)
 
-    pts2 = transform_points(s_1.pts, _trans=[1., 0.], _rot=0.5, _scale=2., _noise=0., _permutation=True)
+    #pts2 = transform_points(s_1.pts, _trans=[1., 0.], _rot=0.5, _scale=2., _noise=0., _permutation=True)
+    pts2 = np.array([[ 1466.59187317,   293.97185516],
+                     [ 1482.87325287,   305.79600525],
+                     [ 1450.2891922,    282.53411865],
+                     [ 1457.59120178,   309.46483612]])
+
     s_2 = smocap.shapes.Shape(pts2)
     s_2.compute_signature()
     s_2.sort_points()
     s_2.name = "s2"
     plot_shape(s_2)
     plt.show()
+
+
+
+
+
     
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -111,4 +144,4 @@ if __name__ == "__main__":
     
     #test_1(db)
     #test_2(db)
-    test_3(db)
+    #test_3(db)

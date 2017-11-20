@@ -90,17 +90,19 @@ class SmocapNodePublisher:
         txt += ' marker 0:\n'
         txt += '   localized: {}\n'.format(_smocap.marker.is_localized)
         txt += '   full frame observations: {}\n'.format([o.roi is not None for o in _smocap.marker.ff_observations] )
-        t_w_to_m = ' '.join(['{:6.3f}'.format(p) for p in _smocap.marker.world_to_irm_T[:3,3]])
-        a_w_to_m = math.atan2(_smocap.marker.world_to_irm_T[0,1], _smocap.marker.world_to_irm_T[0,0])
+        t_w_to_m = ' '.join(['{:6.3f}'.format(p) for p in _smocap.marker.irm_to_world_T[:3,3]])
+        a_w_to_m = math.atan2(_smocap.marker.irm_to_world_T[1,0], _smocap.marker.irm_to_world_T[0,0])
         txt += '   pose {} m {:5.2f} deg\n'.format(t_w_to_m, utils.deg_of_rad(a_w_to_m))
 
         for i, m in enumerate(_smocap.markers):
             txt += ' marker {}:\n'.format(i)
             txt += '   full frame observations: {}\n'.format([o.roi is not None for o in m.ff_observations] )
             txt += '   tracked {}\n'.format([o.tracked for o in m.observations])
-            t_w_to_m = ' '.join(['{:6.3f}'.format(p) for p in m.world_to_irm_T[:3,3]])
-            a_w_to_m = math.atan2(m.world_to_irm_T[0,1], m.world_to_irm_T[0,0])
+            t_w_to_m = ' '.join(['{:6.3f}'.format(p) for p in m.irm_to_world_T[:3,3]])  # pt   [0, 0, 0]_irm in w frame
+            a_w_to_m = math.atan2(m.irm_to_world_T[1,0], m.irm_to_world_T[0,0])         # vect [1, 0, 0]_irm in w frame
             txt += '   pose {} m {:5.2f} deg\n'.format(t_w_to_m, utils.deg_of_rad(a_w_to_m))
+            #if i == 0:
+            #    print m.irm_to_world_T
         self.status_pub.publish(txt)
 
     def publish_test(self, _smocap):

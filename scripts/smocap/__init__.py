@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 
-import logging, os, timeit, yaml
+import logging, os, timeit#, yaml
 import math, numpy as np, cv2, tf.transformations
 import scipy.optimize
-import scipy.spatial.distance
-import sklearn.cluster
+#import scipy.spatial.distance
+#import sklearn.cluster
 
 import utils
 import pdb
 
 import smocap.shapes
+from smocap.camera import *
+from smocap.detector import *
+#import smocap.camera
 
 LOG = logging.getLogger('smocap')
 
@@ -24,92 +27,6 @@ class MarkerNotInFrustumException(Exception):
 class MarkerNotLocalizedException(Exception):
     pass
         
-class Detector:
-
-    param_names = [
-        'blobColor',
-        'filterByArea',
-        'filterByCircularity',
-        'filterByColor',
-        'filterByConvexity',
-        'filterByInertia',
-        'maxArea',
-        'maxCircularity',
-        'maxConvexity',
-        'maxInertiaRatio',
-        'maxThreshold',
-        'minArea',
-        'minCircularity',
-        'minConvexity',
-        'minDistBetweenBlobs',
-        'minInertiaRatio',
-        'minRepeatability',
-        'minThreshold',
-        'thresholdStep' ]
-    
-    
-    def __init__(self, img_encoding, cfg_path=None):
-        self.img_encoding = img_encoding
-        if img_encoding in ['rgb8', 'bgr8']:
-            self.lower_red_hue_range = np.array([0,  100,100]), np.array([10,255,255]) 
-            self.upper_red_hue_range = np.array([160,100,100]), np.array([179,255,255])
-        self.params = cv2.SimpleBlobDetector_Params()
-        if cfg_path is not None:
-            self.load_cfg(cfg_path)
-        else:
-            self.detector = cv2.SimpleBlobDetector_create(self.params)
-
-    def detect(self, img, roi):
-        if self.img_encoding == 'rgb8':
-            hsv = cv2.cvtColor(img[roi], cv2.COLOR_RGB2HSV)
-            self.sfc = cv2.inRange(hsv, *self.lower_red_hue_range)
-            #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
-        elif self.img_encoding == 'bgr8':
-            hsv = cv2.cvtColor(img[roi], cv2.COLOR_BGR2HSV)
-            self.sfc = cv2.inRange(hsv, *self.lower_red_hue_range)
-            #mask2 = cv2.inRange(hsv, *self.upper_red_hue_range)
-        elif self.img_encoding == 'mono8':
-            self.sfc = img[roi]
-        keypoints = self.detector.detect(self.sfc)
-
-        img_coords = np.array([kp.pt for kp in keypoints])
-        if len(img_coords) > 0:
-            img_coords += [roi[1].start, roi[0].start] 
-        return keypoints, img_coords
-
-
-    def detect_ff(self, img):
-        h, w = img.shape[:2]
-        roi = slice(0, h), slice(0, w)
-        return self.detect(img, roi)
-
-
-    def cluster_keypoints(self, kps_img, max_dist=50.):
-        Y1 = scipy.spatial.distance.pdist(kps_img)
-        Y2 = scipy.spatial.distance.squareform(Y1)
-        db = sklearn.cluster.DBSCAN(eps=max_dist, min_samples=1, metric='precomputed')
-        y_db = db.fit_predict(Y2)
-        return y_db
-
-        
-    def load_cfg(self, path):
-        with open(path, 'r') as stream:   
-            d = yaml.load(stream)
-        for k in d:
-            setattr(self.params, k, d[k])
-        self.detector = cv2.SimpleBlobDetector_create(self.params)
-
-    def save_cfg(self, path):
-        d = {}
-        for p in Detector.param_names:
-            d[p] =  getattr(self.params, p)
-        with open(path, 'w') as stream:
-            yaml.dump(d, stream, default_flow_style=False)
-    
-    def update_param(self, name, value):
-        setattr(self.params, name, value)
-        self.detector = cv2.SimpleBlobDetector_create(self.params)
-
             
 
 class Observation:
@@ -136,14 +53,16 @@ class Marker:
     # keypoints names
     kps_names = ['c', 'l', 'r', 'f']
     
-    def __init__(self, nb_cams):
+    def __init__(self, nb_cams, ref_shape):
 
+        self.ref_shape = ref_shape
         # Constants:
         #   coordinates of keypoints in marker frame
-        self.kps_m = np.array([[0, 0, 0], [0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]])
+        #self.kps_m = np.array([[0, 0, 0], [0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]])
         #   constrain marker to floor plan 
         self.heigth_above_floor = 0
         self.irm_to_body_T = np.eye(4)
+        self.irm_to_world_T =  np.eye(4)
         
         # Marker and body poses
         self.set_world_pose(None)
@@ -157,7 +76,10 @@ class Marker:
 
     def set_height_ablove_floor(self, _h):
         self.heigth_above_floor = _h
-        self.irm_to_body_T[2,3] = _h # FIXME!!!! WTF, this is backwards too!!!
+        if 1:
+            self.irm_to_body_T[2,3] = _h # FIXME!!!! WTF, this is backwards too!!!
+        else:
+            self.irm_to_body_T[2,3] = -_h # FIXME!!!! WTF, this is backwards too!!!
         
     def set_roi(self, cam_idx, roi):
         self.observations[cam_idx].set_roi(roi)
@@ -186,52 +108,12 @@ class Marker:
             self.irm_to_world_T = np.linalg.inv(world_to_irm_T)
             self.world_to_body_T = np.dot(self.irm_to_body_T, self.world_to_irm_T)
             self.body_to_world_T = np.linalg.inv(self.world_to_body_T)
-            self.pts_world = np.array([utils.transform(self.irm_to_world_T, pt_m) for pt_m in self.kps_m])
+            self.pts_world = np.array([utils.transform(self.irm_to_world_T, pt_m) for pt_m in self.ref_shape._pts])
         else:
             self.is_localized = False
             self.world_to_irm_T = np.eye(4)
 
-class Camera:
-    def __init__(self, name, encoding='mono8'):
-        self.name = name
-        # camera matrix, distortion coefficients, inverted camera matrix
-        self.K, self.D, self.invK = None, None, None
-        # world to camera transform
-        self.world_to_cam_T, self.world_to_cam_t, self.world_to_cam_q, self.world_to_cam_r = None, None, None, None
-        self.cam_to_world_T = None
-        # image encoding
-        self.img_encoding = encoding
-        
-    def set_calibration(self, K, D, w, h):
-        self.K, self.D, self.w, self.h = K, D, w, h
-        self.invK = np.linalg.inv(self.K)
 
-    def set_location(self,  world_to_camo_t, world_to_camo_q):
-        self.world_to_cam_t, self.world_to_cam_q = world_to_camo_t, world_to_camo_q 
-        self.world_to_cam_T = utils.T_of_t_q(world_to_camo_t, world_to_camo_q)
-        self.world_to_cam_r, _unused = cv2.Rodrigues(self.world_to_cam_T[:3,:3])
-        self.cam_to_world_T = np.linalg.inv(self.world_to_cam_T)
-        # compute floor plan normal and distance
-        # FIXME is world_to_cam really cam_to_world???
-        # yes!!!
-        self.fp_n = self.world_to_cam_T[:3,2]                      # image of [0 0 1]_world in cam frame
-        self.fp_d = -np.dot(self.fp_n , self.world_to_cam_T[:3,3]) # 
-
-        
-    def has_calibration(self): return self.K is not None
-    def is_localized(self): return self.world_to_cam_t is not None
-        
-    def project(self, points_world):
-        return cv2.projectPoints(points_world, self.world_to_cam_r, self.world_to_cam_t, self.K, self.D)[0]
-
-    def compute_roi(self, pts_img, margin=70):
-        ''' Compute RegionOfInterest for a set_of_points in this camera '''
-        x_lu, y_lu = np.min(pts_img, axis=0).squeeze().astype(int)
-        x_rd, y_rd = np.max(pts_img, axis=0).squeeze().astype(int)
-        roi = slice(max(0, y_lu-margin), min(self.w, y_rd+margin)), slice(max(0, x_lu-margin), min(self.w, x_rd+margin))
-        return roi
-    
-    
 class SMoCap:
 
     def __init__(self, cameras, undistort, detector_cfg_path):
@@ -246,8 +128,8 @@ class SMoCap:
         self.cameras = cameras
 
         nb_cams = len(cameras) 
-        self.markers = [Marker(nb_cams) for i in range(len(self.shape_database.shapes))]
-        self.marker = Marker(nb_cams)
+        self.markers = [Marker(nb_cams, rs) for rs in self.shape_database.shapes]
+        self.marker = Marker(nb_cams, self.shape_database.shapes[0])
         self._keypoints_detected = False
 
          
@@ -314,28 +196,37 @@ class SMoCap:
 
         #print marker_id, obs.roi
 
-        obs.keypoints, obs.kps_img = self.detectors[cam_idx].detect(img, obs.roi)   
+        obs.keypoints, obs.kps_img = self.detectors[cam_idx].detect(img, obs.roi)
+        if len(obs.kps_img) == 0:
+            raise MarkerNotDetectedException
         #print obs.kps_img
+        #print('in detect_marker_in_roi2 {}'.format(obs.kps_img))
         shape = smocap.shapes.Shape(obs.kps_img)
         shape_id, shape_ref = self.shape_database.find(shape)
-        if shape_id == -1:
+        if shape_id == -1 or shape_ref != marker.ref_shape:
+            if shape_ref != marker.ref_shape: print 'detected wrong shape'
             raise MarkerNotDetectedException
         shape.sort_points()
+        #print('in detect_marker_in_roi2 found shape {}'.format(shape_id))
         #print shape.pts[shape.angle_sort_idx]
         #print shape_ref.pts[shape.angle_sort_idx]
-        obs.keypoints_img_sorted = shape.pts[shape.angle_sort_idx]
-        obs.keypoints_marker_sorted = shape_ref.pts[shape_ref.angle_sort_idx]
-
+        obs.keypoints_img_sorted = shape.pts_sorted
         
     def track_marker2(self, marker, cam_idx, verbose=0):
         ''' This is a tracker using bundle adjustment.
+            x, y, theta are the position and rotation angle of the marker in world frame
             Position and orientation are constrained to the floor plane '''
         cam = self.cameras[cam_idx]
         observation = marker.observations[cam_idx]
-        pts_marker = np.zeros((len(observation.keypoints_marker_sorted), 3))
-        for i in range(len(pts_marker)):
-            pts_marker[i, :2] = observation.keypoints_marker_sorted[i]
-        
+
+        pts_marker = np.array(marker.ref_shape._pts_sorted)
+        #!!!!! WTF!!!!!
+        tmp =  np.array(pts_marker[0])
+        pts_marker[0] = np.array(pts_marker[2])
+        pts_marker[2] = tmp
+        #pdb.set_trace()
+        #print('in track_marker2 kps_img\n{}'.format(observation.keypoints_img_sorted))
+        #print('in track_marker2 kps_marker\n{}'.format(pts_marker))
         
         def irm_to_cam_T_of_params(params):
             x, y, theta = params
@@ -354,14 +245,15 @@ class SMoCap:
             _angle, _dir, _point = tf.transformations.rotation_from_matrix(irm_to_world_T)
             return (irm_to_world_T[0,3], irm_to_world_T[1,3], _angle)
 
-        p0 =  params_of_irm_to_world_T(self.marker.irm_to_world_T if self.marker.is_localized else np.eye(4)) 
-        res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf')
-        #return irm_to_cam_T_of_params(res.x) 
+        p0 =  params_of_irm_to_world_T(marker.irm_to_world_T if marker.is_localized else np.eye(4)) 
+        #res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf')
+        res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='lm')
         irm_to_cam_T = irm_to_cam_T_of_params(res.x)
+        #print('in track_marker2 irm_to_cam_T\n{}'.format(irm_to_cam_T))
         cam_to_irm_T = np.linalg.inv(irm_to_cam_T)
         world_to_irm_T = np.dot(cam_to_irm_T, cam.world_to_cam_T)
         marker.set_world_pose(world_to_irm_T)
-    
+        marker.rep_err = res.cost
 
 
         
@@ -382,7 +274,8 @@ class SMoCap:
         #print('vid thread, marker has roi in {}'.format(cam_idx))
         #print self.marker.roi
         o = self.marker.observations[cam_idx]
-        o.keypoints, o.kps_img = self.detectors[cam_idx].detect(img, o.roi)    
+        o.keypoints, o.kps_img = self.detectors[cam_idx].detect(img, o.roi)
+        #print('in detect_marker_in_roi {}'.format(o.kps_img))
         if len(o.keypoints) != 4:
             raise MarkerNotDetectedException # FIXME...
 
@@ -413,19 +306,23 @@ class SMoCap:
         #print 's2 s3', s2, s3
         o.marker_of_kp[sorted_idx[2]] = Marker.kp_id_r if s2 > 0 else Marker.kp_id_l
         o.marker_of_kp[sorted_idx[3]] = Marker.kp_id_l if s2 > 0 else Marker.kp_id_r
-        o.kp_of_marker = np.argsort(o.marker_of_kp)
+        #o.kp_of_marker = np.argsort(o.marker_of_kp)
+        #o.keypoints_img_sorted = o.kps_img[o.kp_of_marker]
+        kp_of_marker = np.argsort(o.marker_of_kp)
+        o.keypoints_img_sorted = o.kps_img[kp_of_marker]
         #print self.marker_of_kp
         # for now just use center point
-        o.centroid_img = o.kps_img[o.kp_of_marker[Marker.kp_id_c]]
+        o.centroid_img = o.keypoints_img_sorted[Marker.kp_id_c]
         return True
 
     def track_marker(self, cam_idx, verbose=0):
         ''' This is a tracker using bundle adjustment.
             Position and orientation are constrained to the floor plane '''
-        obs = self.marker.observations[cam_idx]
-        kps_img = obs.kps_img[obs.kp_of_marker]
+        observation = self.marker.observations[cam_idx]
         cam = self.cameras[cam_idx]
-
+        #print('in track_marker kps_img\n{}'.format(observation.keypoints_img_sorted))
+        #print('in track_marker kps_marker\n{}'.format(self.marker.ref_shape._pts))
+        
         def irm_to_cam_T_of_params(params):
             x, y, theta = params
             irm_to_world_r, irm_to_world_t = np.array([0., 0, theta]), [x, y, self.marker.heigth_above_floor]
@@ -435,8 +332,8 @@ class SMoCap:
         def residual(params):
             irm_to_cam_T = irm_to_cam_T_of_params(params)
             irm_to_cam_t, irm_to_cam_r = utils.tr_of_T(irm_to_cam_T)
-            projected_kps = cv2.projectPoints(self.marker.kps_m, irm_to_cam_r, irm_to_cam_t, cam.K, cam.D)[0].squeeze()
-            return (projected_kps - kps_img).ravel()
+            projected_kps = cv2.projectPoints(self.marker.ref_shape._pts, irm_to_cam_r, irm_to_cam_t, cam.K, cam.D)[0].squeeze()
+            return (projected_kps - observation.keypoints_img_sorted).ravel()
 
         def params_of_irm_to_world_T(irm_to_world_T):
             ''' return x,y,theta from irm_to_world transform '''
@@ -444,12 +341,16 @@ class SMoCap:
             return (irm_to_world_T[0,3], irm_to_world_T[1,3], _angle)
 
         p0 =  params_of_irm_to_world_T(self.marker.irm_to_world_T if self.marker.is_localized else np.eye(4)) 
-        res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf')
+        #res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf')
+        res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='lm')
         #return irm_to_cam_T_of_params(res.x) 
         irm_to_cam_T = irm_to_cam_T_of_params(res.x)
+        self.marker.irm_to_cam_T = irm_to_cam_T
+        #print('in track_marker irm_to_cam_T\n{}'.format(irm_to_cam_T))
         cam_to_irm_T = np.linalg.inv(irm_to_cam_T)
         world_to_irm_T = np.dot(cam_to_irm_T, cam.world_to_cam_T)
         self.marker.set_world_pose(world_to_irm_T)
+        self.marker.rep_err = res.cost
         
     
    

@@ -5,6 +5,7 @@ import smocap.utils as ut
 class Shape:
     ''' A shape is a set of unordered 2D points '''
     def __init__(self, pts):
+        self._pts = pts # 3D
         self.pts = pts[:,:2]
         self.compute_signature()
         
@@ -56,10 +57,10 @@ class Shape:
         #print self.args_zs_r_normalized
         self.angle_sort_idx = np.argsort(self.args_zs_r_normalized)
         #print self.angle_sort_idx
-        self.zs_sorted = self.zsk[0, self.angle_sort_idx]
+        #self.zs_sorted = self.zsk[0, self.angle_sort_idx]
         #print 'sorted zs ', self.zs_sorted
-
-
+        self.pts_sorted = self.pts[self.angle_sort_idx]
+        self._pts_sorted = self._pts[self.angle_sort_idx]
 
         
 class Database:
@@ -69,7 +70,7 @@ class Database:
         m1  = np.array([[0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]])
         self.shapes = [Shape(m0), Shape(m1)]
         for s in self.shapes:
-        #    s.compute_signature()
+            #s.compute_signature() # done in shape constructor
             s.sort_points()
         self.sigs = [s.nmus for s in self.shapes]
 

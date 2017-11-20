@@ -5,7 +5,7 @@ image_width: 1600
 image_left: 0
 pixel_clock: 64
 frame_rate: 30.41
-auto_gain: false
+auto_gain: true
 master_gain: 80
 gain_boost: false
 auto_exposure: false
