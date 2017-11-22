@@ -144,4 +144,4 @@ if __name__ == "__main__":
     
     #test_1(db)
     #test_2(db)
-    #test_3(db)
+    test_3(db)

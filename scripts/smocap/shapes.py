@@ -1,4 +1,5 @@
 import math, numpy as np
+import pdb
 
 import smocap.utils as ut
 
@@ -50,19 +51,37 @@ class Shape:
         #print ('normalized mus: {}'.format(self.nmus))
 
 
-    def sort_points(self):
-        self.zs_r_normalized = [z*complex(math.cos(-self.theta), math.sin(-self.theta)) for z in self.zsk[0]]
-        self.args_zs_r_normalized = np.angle(self.zs_r_normalized)
-        #print self.zs_r_normalized
-        #print self.args_zs_r_normalized
-        self.angle_sort_idx = np.argsort(self.args_zs_r_normalized)
-        #print self.angle_sort_idx
-        #self.zs_sorted = self.zsk[0, self.angle_sort_idx]
-        #print 'sorted zs ', self.zs_sorted
-        self.pts_sorted = self.pts[self.angle_sort_idx]
-        self._pts_sorted = self._pts[self.angle_sort_idx]
+    def sort_points(self, debug=False, sort_cw=False):
+        # invert sort if for the fucking y down on images :(
 
-        
+        self.zs_r_normalized = np.array([z*complex(math.cos(-self.theta), math.sin(-self.theta)) for z in self.zsk[0]])
+        # Sort by angle only doen't work. I do not always get the correct starting point :(
+        # what to do???
+        # do I sort with norm? that is not discrimitative either in my fucking triangle
+        # my naive way was sorting first by norm, then by angles (the other way around, really)...
+        if 0: # ok that can't work - I'd say because of -pi;pi line :(
+            self.args_zs_r_normalized = np.angle(self.zs_r_normalized)
+            self.angle_sort_idx = np.argsort(self.args_zs_r_normalized)
+            tmp = self.zs_r_normalized[self.angle_sort_idx]
+            self.abs_zs_r_normalized = np.absolute(tmp)
+            self.abs_sort_idx = np.argsort(self.abs_zs_r_normalized)
+            self.sort_idx = self.angle_sort_idx[self.abs_sort_idx]
+            self.pts_sorted = self.pts[self.sort_idx]
+            self._pts_sorted = self._pts[self.sort_idx]
+        pt_ref_idx = np.argmax(self.zs_r_normalized.real)
+        mask = np.equal(np.arange(len(self.zs_r_normalized)),  pt_ref_idx)
+        other_pts_in_ref = np.ma.masked_array(self.zs_r_normalized - self.zs_r_normalized.real[pt_ref_idx] , mask)
+        if sort_cw:
+            other_pts_in_ref_arg = np.arctan2(-other_pts_in_ref.imag, -other_pts_in_ref.real)
+        else:
+            other_pts_in_ref_arg = np.arctan2(other_pts_in_ref.imag, -other_pts_in_ref.real)
+        self.sort_idx = np.argsort(other_pts_in_ref_arg)[::-1]
+        self.pts_sorted = self.pts[self.sort_idx]
+        self._pts_sorted = self._pts[self.sort_idx]
+        if debug:
+            pdb.set_trace()
+
+            
 class Database:
 
     def __init__(self):

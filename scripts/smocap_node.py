@@ -118,11 +118,15 @@ class SMoCapNode:
         self.img_encoding =  rospy.get_param('~img_encoding', 'mono8')
         detector_cfg_path =    rospy.get_param('~detector_cfg_path', '/home/poine/work/smocap.git/params/f111_detector_default.yaml')
         self.trap_losses = rospy.get_param('~trap_losses', False)
-
+        self.run_multi_tracker = rospy.get_param('~run_multi_tracker', False)
+        self.run_mono_tracker = rospy.get_param('~run_mono_tracker', True)
+        
         rospy.loginfo('   using cameras: "{}"'.format(camera_names))
         rospy.loginfo('   using detector config: "{}"'.format(detector_cfg_path))
         rospy.loginfo('   image encoding: "{}"'.format(self.img_encoding))
         rospy.loginfo('   trapping losses: "{}"'.format(self.trap_losses))
+        rospy.loginfo('   run_mono_tracker: "{}"'.format(self.run_mono_tracker))
+        rospy.loginfo('   run_multi_tracker: "{}"'.format(self.run_multi_tracker))
         
         cams = self.retrieve_cameras(camera_names)
         self.timer = Timer(len(cams))
@@ -133,7 +137,7 @@ class SMoCapNode:
         self.smocap = smocap.SMoCap(cams, undistort=True, detector_cfg_path=detector_cfg_path)
 
         self.smocap.marker.heigth_above_floor = 0.15#0.09
-        self.smocap.markers[0].heigth_above_floor = 0.09
+        self.smocap.markers[0].heigth_above_floor = 0.15
 
         self.publisher = smocap_node_publisher.SmocapNodePublisher(self.smocap)
 
@@ -208,16 +212,10 @@ class SMoCapNode:
         if 1:
             msg.header.frame_id = "world"
             msg.header.stamp = rospy.Time.now()#self.last_frame_time
-            #self.smocap.marker.irm_to_world_T = np.array([[ 0.9801,  0.1987,  0.,      1.    ], # x, y, z, theta 1, 1, 0.9, -0.2
-            #                                              [-0.1987,  0.9801,  0.,      1.    ],
-            #                                              [ 0.,      0.,      1.,      0.09  ],
-            #                                              [ 0.,      0.,      0.,      1.    ]])
-            #self.smocap.marker.irm_to_world_T = np.array([[ 0.9801,  -0.1987,  0.,      1.    ], # x, y, z, theta 1, 1, 0.9, 0.2
-            #                                              [0.1987,  0.9801,  0.,      1.    ],
-            #                                              [ 0.,      0.,      1.,      0.09  ],
-            #                                              [ 0.,      0.,      0.,      1.    ]])
-            utils._position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.irm_to_world_T)
-            #utils._position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.markers[0].irm_to_world_T)
+            if self.run_mono_tracker:
+                utils._position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.irm_to_world_T)
+            else:
+                utils._position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.markers[0].irm_to_world_T)
         if 0:
             msg.header.frame_id = "ueye_enac_ceiling_1_6mm_optical_frame"
             msg.header.stamp = rospy.Time.now()#self.last_frame_time
@@ -246,10 +244,10 @@ class SMoCapNode:
         except cv_bridge.CvBridgeError as e:
             print(e)
         
-        if True:#self.smocap.has_unlocalized_markers():
+        if self.run_multi_tracker or self.smocap.has_unlocalized_marker(): 
             self.frame_searchers[camera_idx].put_image(cv_image, msg.header.seq, msg.header.stamp)
 
-        if 0: # track all markers... soon!
+        if self.run_multi_tracker:
             for marker_id, marker in enumerate(self.smocap.markers):
                 try:
                     self.smocap.detect_marker_in_roi2(cv_image, camera_idx, msg.header.stamp, marker_id)
@@ -268,30 +266,28 @@ class SMoCapNode:
                 finally:
                     if not any([o.tracked for o in marker.observations]):
                         marker.set_world_pose(None)
-        #print
-        try:
-            self.timer.signal_start(camera_idx, msg.header.stamp, msg.header.seq)
-            self.smocap.detect_marker_in_roi(cv_image, camera_idx)
-            self.smocap.identify_marker_in_roi(camera_idx)
-            self.smocap.track_marker(camera_idx)
-        except smocap.MarkerNotDetectedException:
-            if self.trap_losses and self.smocap.marker.observations[camera_idx].tracked: # if we just lost the marker
-                self.losses_trapper.record(cv_image, self.smocap.marker.irm_to_world_T)
-            self.smocap.marker.observations[camera_idx].tracked = False
-        except smocap.MarkerNotLocalizedException, smocap.MarkerNotInFrustumException:
-            self.smocap.marker.observations[camera_idx].tracked = False
-        else:
-            self.smocap.marker.observations[camera_idx].tracked = True
-            if self.publish_est:
-                self.do_publish_est()
-        finally:
-            if not any([o.tracked for o in self.smocap.marker.observations]):
-                self.smocap.marker.set_world_pose(None)
-            self.timer.signal_done(camera_idx, rospy.Time.now())
-            
-        #print
-        #print '#####'
 
+        if self.run_mono_tracker:
+            try:
+                self.timer.signal_start(camera_idx, msg.header.stamp, msg.header.seq)
+                self.smocap.detect_marker_in_roi(cv_image, camera_idx)
+                self.smocap.identify_marker_in_roi(camera_idx)
+                self.smocap.track_marker(camera_idx)
+            except smocap.MarkerNotDetectedException:
+                if self.trap_losses and self.smocap.marker.observations[camera_idx].tracked: # if we just lost the marker
+                    self.losses_trapper.record(cv_image, self.smocap.marker.irm_to_world_T)
+                self.smocap.marker.observations[camera_idx].tracked = False
+            except smocap.MarkerNotLocalizedException, smocap.MarkerNotInFrustumException:
+                self.smocap.marker.observations[camera_idx].tracked = False
+            else:
+                self.smocap.marker.observations[camera_idx].tracked = True
+                if self.publish_est:
+                    self.do_publish_est()
+            finally:
+                if not any([o.tracked for o in self.smocap.marker.observations]):
+                    self.smocap.marker.set_world_pose(None)
+                self.timer.signal_done(camera_idx, rospy.Time.now())
+            
                 
     def run(self):
         rate = rospy.Rate(2.)

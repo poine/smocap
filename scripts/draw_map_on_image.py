@@ -122,10 +122,10 @@ def main(args):
   rospy.init_node('smocap_draw_map_on_image')
   rospy.loginfo('smocap draw starting')
   params = {
-      'camera_name': 'ueye_enac_ceiling_2_6mm',
+      'camera_name': 'ueye_enac_ceiling_3',#ueye_enac_ceiling_2_6mm',
       'camera_img_fmt': 'mono8',
-      'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_dual.yaml',
-      #'map_path':   '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_empty.yaml',
+      #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_dual.yaml',
+      'map_path':   '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/enac_bench/track_test2.yaml', #track_empty.yaml',
       #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_2.yaml',
       #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_3.yaml',
       #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_4.yaml',

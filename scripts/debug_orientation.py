@@ -80,26 +80,19 @@ def track_marker2(cam, pts_marker, pts_img, heigth_above_floor=0., verbose=0):
     #marker.set_world_pose(world_to_irm_T)
     
 
-def plot(pts_world):
-    plt.scatter(pts_world[:,0], pts_world[:,1])
-    ax = plt.gca()
-    ax.set_aspect('equal')
-
-
 
 def test_0(_cam):
     ''' Here i check that the world to camera orientation i computed and that I am broacasting in ROS is correct '''
     #for i in range(5): cam.D[i]= 0.
-    if 1:
-        pts_id, pts_img,  pts_world = load_points('../test/F111/ueye_enac_ceiling_1_extrinsic_points.yaml')
-        #rep_pts_img =  cv2.projectPoints(pts_world, cam.world_to_cam_r, cam.world_to_cam_t, cam.K, cam.D)[0].squeeze()
-        #print rep_pts_img
-        #rep_err = np.mean(np.linalg.norm(pts_img - rep_pts_img, axis=1))
-        #print 'reprojection error {} px'.format(rep_err)
-        rep_pts_img = _cam.project(pts_world).squeeze()
-        #print rep_pts_img
-        rep_err = np.mean(np.linalg.norm(pts_img - rep_pts_img, axis=1))
-        print 'reprojection error {} px'.format(rep_err)
+    pts_id, pts_img,  pts_world = load_points('../test/F111/ueye_enac_ceiling_1_extrinsic_points.yaml')
+    #rep_pts_img =  cv2.projectPoints(pts_world, cam.world_to_cam_r, cam.world_to_cam_t, cam.K, cam.D)[0].squeeze()
+    #print rep_pts_img
+    #rep_err = np.mean(np.linalg.norm(pts_img - rep_pts_img, axis=1))
+    #print 'reprojection error {} px'.format(rep_err)
+    rep_pts_img = _cam.project(pts_world).squeeze()
+    #print rep_pts_img
+    rep_err = np.mean(np.linalg.norm(pts_img - rep_pts_img, axis=1))
+    print 'reprojection error {} px'.format(rep_err)
     
 def test_1(_cam, x=1., y=1., heigth_above_floor=0.09, theta=0.2):
     ''' Here, i test track marker 2 on a synthetic marker'''
@@ -130,72 +123,115 @@ def test_1(_cam, x=1., y=1., heigth_above_floor=0.09, theta=0.2):
     #angle, _dir, _point = tf.transformations.rotation_from_matrix(irm_to_world_T)
     #print('retrieved theta {} {}\n'.format(angle, _dir))
     print('success' if np.allclose(world_to_irm_T, retrieved_world_to_irm_T) else 'failure')
-    plot(pts_world)
 
-
-
-
-def plot_foo(pts_img_sorted, pts_irm_sorted, window_title):
     ax = plt.subplot(1,2,1)
+    plt.title('world')
+    plt.scatter(pts_world[:,0], pts_world[:,1])
+    ax.set_aspect('equal')
+    ax = plt.subplot(1,2,2)
+    plt.title('image')
+    plt.scatter(pts_img[:,0], pts_img[:,1])
+    ax.set_aspect('equal')
+    
+    plt.gcf().canvas.set_window_title('testing on synthetic marker')
+
+
+def test_1bis(cams):
+    ''' Here, i compare the old and the new tracking code on synthetic marker'''  
+    _smocap = smocap.SMoCap(cams, undistort=False, detector_cfg_path='/home/poine/work/smocap.git/params/f111_detector_default.yaml')
+    
+
+    
+    
+
+
+def plot_foo(img, roi, pts_img_sorted, pts_irm_sorted, window_title):
+    ax = plt.subplot(1,2,1)
+    plt.imshow(img)
     plt.scatter(pts_img_sorted[:,0], pts_img_sorted[:,1])
     for i, p in enumerate(pts_img_sorted):
-        ax.text(p[0], p[1], '{}'.format(i))
+        ax.text(p[0], p[1], '{}'.format(i), color='r')
+    ax.set_ylim(roi[0].stop, roi[0].start)
+    ax.set_xlim(roi[1].start, roi[1].stop)
     ax.set_aspect('equal')
     plt.title('image')
     ax = plt.subplot(1,2,2)
     plt.scatter(pts_irm_sorted[:,0], pts_irm_sorted[:,1])
     for i, p in enumerate(pts_irm_sorted):
-        ax.text(p[0], p[1], '{}'.format(i))
+        ax.text(p[0], p[1], '{}'.format(i), color='r')
     ax.set_aspect('equal')
     plt.title('ref shape')
     plt.gcf().canvas.set_window_title(window_title)
     
-def test_2(cams, path='../test/image_16.png'):
+def test_2(cams, img_path, verbose=False, plot=True):
     ''' Here, i compare the old and the new tracking code'''
-    img = cv2.imread(path)
-
+    img = cv2.imread(img_path)
+    print('loaded {}'.format(img_path))
     _smocap = smocap.SMoCap(cams, undistort=False, detector_cfg_path='/home/poine/work/smocap.git/params/f111_detector_default.yaml')
     cam_idx = 0
 
     _smocap.detect_markers_in_full_frame(img, cam_idx, None)
     ff_obs = _smocap.marker.ff_observations[cam_idx]
-
+    
     print("#######\nold code")
     _smocap.marker.set_height_ablove_floor(0.09)
     _smocap.detect_marker_in_roi(img, cam_idx)
     obs = _smocap.marker.observations[cam_idx]
-    print('observation\n{}'.format(obs.kps_img))
+    if verbose: print('observation\n{}'.format(obs.kps_img))
     _smocap.identify_marker_in_roi(cam_idx)
-    print('sorted observation\n{}'.format(obs.keypoints_img_sorted))
+    if verbose: print('sorted observation\n{}'.format(obs.keypoints_img_sorted))
     _smocap.track_marker(cam_idx, verbose=0)
     print('retrieved_irm_to_world\n{} (rep err {})'.format(_smocap.marker.irm_to_world_T, _smocap.marker.rep_err))
 
-    plot_foo(obs.keypoints_img_sorted, _smocap.marker.ref_shape._pts, 'old code')
-    plt.figure()
+    if plot:
+        plot_foo(img, ff_obs.roi, obs.keypoints_img_sorted, _smocap.marker.ref_shape._pts, 'old code')
+        plt.figure()
 
     
     print("#######\nnew code")
     m_id = 0
     _m = _smocap.markers[m_id]
+    if verbose: print(' in test2 theta_ref {}'.format( _m.ref_shape.theta))
     _m.set_height_ablove_floor(0.09)
     _smocap.detect_marker_in_roi2(img, cam_idx, None, m_id)
+    
     obs = _m.observations[cam_idx]
-    print('observation\n{}'.format(obs.kps_img))
-    print('sorted observation (img)\n{}'.format(obs.keypoints_img_sorted))
-    print('sorted observation (irm)\n{}'.format(_m.ref_shape._pts_sorted))
+    if verbose: print('observation\n{}'.format(obs.kps_img))
+    if verbose: print('observation, shape.theta {}'.format(obs.shape.theta))
+
+    if verbose: print(obs.shape.zs_r_normalized)
+    #print(obs.shape.args_zs_r_normalized)
+    #print(obs.shape.angle_sort_idx)
+    if plot:
+        zs_r_normalized = np.array(obs.shape.zs_r_normalized)
+        ax = plt.subplot(1,2,1)
+        plt.scatter(zs_r_normalized.real, zs_r_normalized.imag)
+        for i, p in enumerate(zs_r_normalized):
+            ax.text(p.real, p.imag, '{}'.format(i), color='r')
+        ax.set_aspect('equal')
+        ax = plt.subplot(1,2,2)
+        plt.scatter(obs.shape.pts_sorted[:,0], obs.shape.pts_sorted[:,1])
+        for i, p in enumerate(obs.shape.pts_sorted):
+            ax.text(p[0], p[1], '{}'.format(i), color='r')
+        ax.set_aspect('equal')
+        plt.figure()
+
+    if verbose: print('sorted observation (img)\n{}'.format(obs.keypoints_img_sorted))
+    if verbose: print('sorted observation (irm)\n{}'.format(_m.ref_shape._pts_sorted))
     #tmp = obs.keypoints_img_sorted[0]
     #obs.keypoints_img_sorted[0] =  obs.keypoints_img_sorted[2]
     #obs.keypoints_img_sorted[2] = tmp
-    _smocap.track_marker2(_m, cam_idx, verbose=1)
+    _smocap.track_marker2(_m, cam_idx, verbose=0, add_bug=False)
     print('retrieved_irm_to_world\n{} (rep err {})'.format(_m.irm_to_world_T, _m.rep_err))
 
 
-    plot_foo(obs.keypoints_img_sorted, _m.ref_shape._pts_sorted, 'new_code')
-    plt.show()
+    if plot:
+        plot_foo(img, ff_obs.roi, obs.keypoints_img_sorted, _m.ref_shape._pts_sorted, 'new_code')
+        plt.show()
     
-    cv2.imshow('my window title', img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    #cv2.imshow('my window title', img)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
 
 
     
@@ -212,7 +248,9 @@ if __name__ == "__main__":
     
     #test_0(cam)
     #test_1(cam)
-    test_2(cams)
+    #test_1bis(cams)
+    for i in ['15', '16', '17', '18', '19', '20']:
+        test_2(cams, img_path='../test/image_{}.png'.format(i), plot=False)
 
     
     plt.show()

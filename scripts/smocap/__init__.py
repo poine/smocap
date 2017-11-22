@@ -173,7 +173,7 @@ class SMoCap:
                 marker.set_ff_observation(cam_idx, None, None, None)                
 
 
-    def has_unlocalized_markers(self):
+    def has_unlocalized_marker(self):
         return not self.marker.is_localized
 
 
@@ -206,13 +206,14 @@ class SMoCap:
         if shape_id == -1 or shape_ref != marker.ref_shape:
             if shape_ref != marker.ref_shape: print 'detected wrong shape'
             raise MarkerNotDetectedException
-        shape.sort_points()
+        shape.sort_points(debug=False, sort_cw=True)
         #print('in detect_marker_in_roi2 found shape {}'.format(shape_id))
         #print shape.pts[shape.angle_sort_idx]
         #print shape_ref.pts[shape.angle_sort_idx]
+        obs.shape = shape # store that for now to allow debug
         obs.keypoints_img_sorted = shape.pts_sorted
         
-    def track_marker2(self, marker, cam_idx, verbose=0):
+    def track_marker2(self, marker, cam_idx, verbose=0, add_bug=False):
         ''' This is a tracker using bundle adjustment.
             x, y, theta are the position and rotation angle of the marker in world frame
             Position and orientation are constrained to the floor plane '''
@@ -221,9 +222,10 @@ class SMoCap:
 
         pts_marker = np.array(marker.ref_shape._pts_sorted)
         #!!!!! WTF!!!!!
-        tmp =  np.array(pts_marker[0])
-        pts_marker[0] = np.array(pts_marker[2])
-        pts_marker[2] = tmp
+        if add_bug:
+            tmp =  np.array(pts_marker[2])
+            pts_marker[2] = np.array(pts_marker[3])
+            pts_marker[3] = tmp
         #pdb.set_trace()
         #print('in track_marker2 kps_img\n{}'.format(observation.keypoints_img_sorted))
         #print('in track_marker2 kps_marker\n{}'.format(pts_marker))
@@ -246,8 +248,8 @@ class SMoCap:
             return (irm_to_world_T[0,3], irm_to_world_T[1,3], _angle)
 
         p0 =  params_of_irm_to_world_T(marker.irm_to_world_T if marker.is_localized else np.eye(4)) 
-        #res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf')
-        res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='lm')
+        res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf')
+        #res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='lm')
         irm_to_cam_T = irm_to_cam_T_of_params(res.x)
         #print('in track_marker2 irm_to_cam_T\n{}'.format(irm_to_cam_T))
         cam_to_irm_T = np.linalg.inv(irm_to_cam_T)
