@@ -151,7 +151,7 @@ set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX ""
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node
-  ${catkin_LIBRARIES}
+  ${catkin_LIBRARIES}  ${OpenCV_LIBS}
 )
 
 #############
