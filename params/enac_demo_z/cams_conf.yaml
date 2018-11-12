@@ -1,0 +1,12 @@
+color_mode: mono8
+image_height: 1216
+image_top: 0
+image_width: 1936
+image_left: 0
+pixel_clock: 237
+frame_rate: 29.999351
+auto_gain: false
+master_gain: 80
+gain_boost: false
+auto_exposure: false
+exposure: 8.001838
