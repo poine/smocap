@@ -49,7 +49,7 @@ class DrawingNode:
         rospy.loginfo(' retrieved camera location')
 
     def load_map(self, map_filename):
-        self.map = guidance.Map(map_filename)
+        self.map = guidance.Map(yaml_path=map_filename)
         
     
     def img_callback(self, msg):
@@ -122,10 +122,10 @@ def main(args):
   rospy.init_node('smocap_draw_map_on_image')
   rospy.loginfo('smocap draw starting')
   params = {
-      'camera_name': 'ueye_enac_ceiling_3',#ueye_enac_ceiling_2_6mm',
+      'camera_name': 'ueye_enac_z_1',#ueye_enac_ceiling_2_6mm',
       'camera_img_fmt': 'mono8',
       #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_dual.yaml',
-      'map_path':   '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/enac_bench/track_test2.yaml', #track_empty.yaml',
+      'map_path':   '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/expe_z/track_ethz_cam1_new.yaml', #track_empty.yaml',
       #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_2.yaml',
       #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_3.yaml',
       #'map_path':    '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_4.yaml',
@@ -134,7 +134,8 @@ def main(args):
       #'path_path':   '/home/poine/work/oscar.git/oscar/oscar_control/path_track_ethz_4_1.npz'
       #'path_path':   '/home/poine/work/oscar.git/oscar/oscar_control/paths/line_02.npz'
       #'path_path':   '/home/poine/work/oscar.git/oscar/oscar_control/paths/arc_02.npz'
-      'path_path':   '/home/poine/work/oscar.git/oscar/oscar_control/paths/oval_01.npz'
+      #'path_path':   '/home/poine/work/oscar.git/oscar/oscar_control/paths/oval_01.npz'
+      'path_path':   '/home/poine/work/oscar.git/oscar/oscar_control/paths/demo_z/track_ethz_cam1.npz'
   }
   sn = DrawingNode(**params)
   try:
