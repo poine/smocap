@@ -294,10 +294,16 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     np.set_printoptions(precision=3, linewidth=300)
     args = {
+        'detector_cfg':'/home/poine/work/smocap.git/params/enac_demo_z/expe_z_detector_default.yaml',
+        'image_path':'/home/poine/work/smocap.git/test/expe_z/image_01.png',
+        'image_encoding':'mono8'
+    }
+    if 0:
+        args = {
         'detector_cfg':'/home/poine/work/smocap.git/params/f111_detector_default.yaml',
         'image_path':'/home/poine/work/smocap.git/test/f111_cam1_detect_fail.png',
         'image_encoding':'mono8'
-    }
+        }
     if 0:
         args = {
             'detector_cfg':'/home/poine/work/smocap.git/params/gazebo_detector_cfg.yaml',

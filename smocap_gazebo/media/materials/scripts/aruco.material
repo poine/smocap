@@ -1,0 +1,641 @@
+
+material Aruco0 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_000.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco1 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_001.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco2 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_002.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco3 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_003.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco4 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_004.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco5 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_005.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco6 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_006.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco7 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_007.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco8 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_008.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco9 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_009.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco10 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_010.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco11 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_011.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco12 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_012.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco13 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_013.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco14 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_014.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco15 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_015.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco16 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_016.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco17 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_017.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco18 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_018.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco19 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_019.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco20 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_020.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco21 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_021.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco22 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_022.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco23 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_023.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco24 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_024.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco25 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_025.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco26 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_026.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco27 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_027.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco28 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_028.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco29 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_029.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco30 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_030.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco31 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_031.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco32 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_032.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco33 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_033.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco34 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_034.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco35 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_035.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco36 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_036.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco37 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_037.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco38 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_038.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco39 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_039.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco40 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_040.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco41 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_041.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco42 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_042.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco43 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_043.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco44 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_044.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco45 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_045.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco46 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_046.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco47 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_047.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco48 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_048.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco49 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_049.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco50 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_050.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco51 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_051.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco52 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_052.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco53 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_053.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco54 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_054.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco55 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_055.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco56 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_056.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco57 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_057.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco58 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_058.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco59 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_059.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco60 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_060.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco61 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_061.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco62 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_062.jpg
+                scale 1 1
+            }
+        }
+    }
+}
+material Aruco63 {
+    technique {
+        pass {
+            texture_unit {
+                texture aruco_063.jpg
+                scale 1 1
+            }
+        }
+    }
+}

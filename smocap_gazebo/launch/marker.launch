@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+
+<!-- load a fixed marker in gazebo -->
+<launch>
+  <arg name="marker_name"    default="default"/>
+  <arg name="marker_urdf"    default="chessboard.urdf.xacro"/> <!-- or hog_chessboard.urdf.xacro -->
+  <arg name="marker_mesh"    default="ir_marker_5.dae"/>
+  <arg name="marker_texture" default="Aruco14"/>
+  <arg name="static"         default="false"/>
+  
+  <arg name="pos_x" default="0"/>
+  <arg name="pos_y" default="0"/>
+  <arg name="pos_z" default="0"/>
+
+  <arg name="rot_R" default="0"/>
+  <arg name="rot_P" default="0"/>
+  <arg name="rot_Y" default="0"/>
+  
+  <!--<env name="GAZEBO_MODEL_PATH" value="$(find smocap_gazebo)/models"/>-->
+  <env name="GAZEBO_RESOURCE_PATH" value="$(find smocap_gazebo)/media/materials"/>
+  <!-- Load marker description into parameter server -->
+  <param name="marker_$(arg marker_name)_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/$(arg marker_urdf) mesh:=$(arg marker_mesh) texture:=$(arg marker_texture) root_link:=$(arg marker_name) static:=$(arg static)" />
+  <!-- Spawn marker -->
+  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
+	args="-urdf -model $(arg marker_name) -x $(arg pos_x) -y $(arg pos_y) -z $(arg pos_z) -R $(arg rot_R) -P $(arg rot_P) -Y $(arg rot_Y) -param marker_$(arg marker_name)_description" />
+  
+</launch>

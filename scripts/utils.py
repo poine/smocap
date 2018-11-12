@@ -68,7 +68,6 @@ def _position_and_orientation_from_T(p, q, T):
     q.w = -q.w
     #p.x, p.y, p.z = 1, 1, 0
     #q.x, q.y, q.z, q.w = 0, 0, 0, 1
-
     
 def t_q_of_transf_msg(transf_msg):
     return list_of_position(transf_msg.translation), list_of_orientation(transf_msg.rotation)

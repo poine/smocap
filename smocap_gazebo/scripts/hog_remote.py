@@ -13,12 +13,13 @@ class Node:
     This is a gazebo node that periodically sets world->irm_link_desired tf
     '''
     def __init__(self, controlled_link='irm_link'):
+        self.ctl_link_desired = '{}_desired'.format(controlled_link)
+        self.ctl_link_actual = '{}_actual'.format(controlled_link)
         self.br = tf2_ros.TransformBroadcaster()
         self.tf_msg = geometry_msgs.msg.TransformStamped()
-        self.set_orientation((0, 0, 0))
-        self.set_position((0, 0, 0))
+        self.set_pose(((0, 0, 0), (0, 0, 0)))
         self.tf_msg.header.frame_id = "world"
-        self.tf_msg.child_frame_id = '{}_desired'.format(controlled_link)
+        self.tf_msg.child_frame_id = self.ctl_link_desired
         self.tfBuffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tfBuffer)
         self.pose_err = (None, None)
@@ -32,6 +33,10 @@ class Node:
         self.pos = p
         _t = self.tf_msg.transform.translation
         _t.x, _t.y, _t.z = p
+
+    def set_pose(self, pose):
+        self.set_position(pose[0])
+        self.set_orientation(pose[1])
         
     def marker_has_arrived(self, tol_t=1e-2, tol_r=5e-2):
         if self.pose_err[0] is None: return False
@@ -48,14 +53,24 @@ class Node:
             pass
 
     def periodic(self):
+        # send desired marker pose
         self.tf_msg.header.stamp = rospy.Time.now()
         self.br.sendTransform(self.tf_msg)
+        # fetch pose error
         try:
-            d2a = self.tfBuffer.lookup_transform('irm_link_desired', 'irm_link_actual', rospy.Time())
+            d2a = self.tfBuffer.lookup_transform(self.ctl_link_desired, self.ctl_link_actual, rospy.Time())
             self.pose_err = utils.t_q_of_transf_msg(d2a.transform)
-        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
             self.pose_err = (None, None)
 
+
+    def get_marker_pose(self):
+        try:
+            w2a = self.tfBuffer.lookup_transform('world', self.ctl_link_actual, rospy.Time())
+            w2a_t, w2a_q = utils.t_q_of_transf_msg(w2a.transform) 
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+            w2a_t, w2a_q = None, None
+        return w2a_t, w2a_q
             
 class GUI:
     def __init__(self, controlled_link):

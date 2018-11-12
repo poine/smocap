@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<robot name="smocap_hog_camera" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:property name="PI" value="3.1415926535897931" />
+
+  <xacro:arg name="camera_id" default="1"/>
+  <!-- pose of the camera root_link -->
+  <xacro:arg name="camera_x"  default="0."/>
+  <xacro:arg name="camera_y"  default="0."/>
+  <xacro:arg name="camera_z"  default="0."/>
+  <xacro:arg name="camera_R"  default="0."/>
+  <xacro:arg name="camera_P"  default="0."/>
+  <xacro:arg name="camera_Y"  default="0."/>
+
+  <xacro:arg name="camera_root_link"  default="camera_root_link"/>
+  
+  <!-- Import camera macros -->
+  <xacro:include filename="$(find smocap)/urdf/camera.urdf.xacro" />
+  
+  <!-- Instanciate camera -->
+  <link name="$(arg camera_root_link)" />
+  <xacro:smocap_camera _cid="$(arg camera_id)" _root_link="$(arg camera_root_link)"
+		       _x="$(arg camera_x)" _y="$(arg camera_y)" _z="$(arg camera_z)"
+		       _rx="$(arg camera_R)" _ry="$(arg camera_P)" _rz="$(arg camera_Y)"
+		       _k1="0." _k2="0." _k3="0." _t1="0." _t2="0." _fps="30." _static="false"/>
+
+  <gazebo>
+    <plugin name="hand_of_god" filename="libgazebo_ros_hand_of_god.so">
+      <linkName>$(arg camera_root_link)</linkName>
+      <kl>0.4</kl>
+      <ka>0.01</ka>
+      <frameId>$(arg camera_root_link)</frameId>
+    </plugin>
+  </gazebo>
+  
+  <gazebo>
+    <plugin name="ground_truth" filename="libgazebo_ros_p3d.so">
+      <frameName>world</frameName>
+      <bodyName>$(arg camera_root_link)</bodyName>
+      <topicName>smocap/$(arg camera_root_link)_truth</topicName>
+      <updateRate>30.0</updateRate>
+    </plugin>
+  </gazebo>
+  
+</robot>

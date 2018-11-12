@@ -1,14 +1,17 @@
 <?xml version="1.0"?>
 <robot name="smocap_camera" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
- <xacro:macro name="smocap_camera" params="name _x _y _z _rx _ry _rz _k1 _k2 _t1 _t2 _k3 _fps">
+ <xacro:macro name="smocap_camera" params="_cid _root_link _x _y _z _rx _ry _rz _k1 _k2 _t1 _t2 _k3 _fps _static">
+
    <xacro:property name="camera_r" value="0.01" />
 
-   <gazebo>
-     <static>true</static>
-   </gazebo>
-
-   <link name="camera${name}_link">
+   <xacro:if value="${_static}">
+     <gazebo>
+       <static>true</static>
+     </gazebo>
+   </xacro:if>
+   
+   <link name="camera_${_cid}_link">
 
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -34,7 +37,7 @@
 
   </link>
 
-   <link name="camera${name}_optical_frame">
+   <link name="camera_${_cid}_optical_frame">
     <inertial>
       <mass value="0.01"/>
       <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -57,23 +60,23 @@
   </link>
 
   
-  <joint name="camera${name}_joint"  type="fixed">
+  <joint name="camera_${_cid}_joint"  type="fixed">
     <origin xyz="${_x} ${_y} ${_z}" rpy="${_rx} ${_ry} ${_rz}" />
-    <parent link="world"/>
-    <child link="camera${name}_link"/>
+    <parent link="${_root_link}"/>
+    <child link="camera_${_cid}_link"/>
   </joint>
 
-  <joint name="camera${name}_optical_frame_joint" type="fixed">
+  <joint name="camera_${_cid}_optical_frame_joint" type="fixed">
     <origin rpy="${-PI/2} 0.0 ${-PI/2}" xyz="0.0 0.0 0.0"/>
-    <parent link="camera${name}_link"/>
-    <child link="camera${name}_optical_frame"/>
+    <parent link="camera_${_cid}_link"/>
+    <child link="camera_${_cid}_optical_frame"/>
   </joint>
 
 
-  <gazebo reference="camera${name}_link">
+  <gazebo reference="camera_${_cid}_link">
     <sensor type="camera" name="camera">
       <update_rate>${_fps}</update_rate>
-      <camera name="${name}">
+      <camera name="${_cid}">
         <horizontal_fov>1.15</horizontal_fov>
         <image>
           <width>1600</width>
@@ -82,7 +85,7 @@
         </image>
         <clip>
           <near>0.02</near>
-          <far>3</far>
+          <far>15</far>
         </clip>
         <noise>
           <type>gaussian</type>
@@ -93,10 +96,10 @@
       <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
         <alwaysOn>true</alwaysOn>
         <updateRate>0.0</updateRate>
-        <cameraName>camera${name}</cameraName>
+        <cameraName>camera_${_cid}</cameraName>
         <imageTopicName>image_raw</imageTopicName>
         <cameraInfoTopicName>camera_info</cameraInfoTopicName>
-        <frameName>camera${name}_link</frameName>
+        <frameName>camera_${_cid}_link</frameName>
         <hackBaseline>0.07</hackBaseline>
         <distortionK1>${_k1}</distortionK1>
         <distortionK2>${_k2}</distortionK2>

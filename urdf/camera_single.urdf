@@ -1,14 +1,23 @@
 <?xml version="1.0"?>
 <robot name="smocap_cameras" xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:property name="PI" value="3.1415926535897931" />
+
+  <xacro:arg name="camera_id" default="1"/>
+  <xacro:arg name="camera_x"  default="1."/>
+  <xacro:arg name="camera_y"  default="1."/>
+  <xacro:arg name="camera_z"  default="2."/>
+  <xacro:arg name="camera_R"  default="0."/>
+  <xacro:arg name="camera_P"  default="0."/> <!--${PI/2}"/>-->
+  <xacro:arg name="camera_Y"  default="0."/>
   
-  <link name="world" />
 
-  <!-- Camera macro -->
+  <!-- Import camera macros -->
   <xacro:include filename="$(find smocap)/urdf/camera.urdf.xacro" />
-
-  <xacro:smocap_camera name="" _x="1.2" _y="1.77" _z="2.82" _rx="0." _ry="${PI/2}" _rz="0."
-                       _k1="0." _k2="0." _k3="0." _t1="0." _t2="0."
-		       _fps="30."/>
+  <!-- Instanciate camera -->
+  <link name="world" />
+  <xacro:smocap_camera _cid="$(arg camera_id)" _root_link="world"
+		       _x="$(arg camera_x)" _y="$(arg camera_y)" _z="$(arg camera_z)"
+		       _rx="$(arg camera_R)" _ry="$(arg camera_P)" _rz="$(arg camera_Y)"
+                       _k1="0." _k2="0." _k3="0." _t1="0." _t2="0." _fps="30." _static="true"/>
 
 </robot>

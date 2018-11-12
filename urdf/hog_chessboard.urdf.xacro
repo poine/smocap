@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<robot name="smocap_chessboard" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="root_link" default="irm_link"/>
+  <xacro:arg name="mesh" default="unused"/>
+  <xacro:arg name="texture" default="ChessBoard01"/>
+  
+  <!-- Import marker macros -->
+  <xacro:include filename="$(find smocap)/urdf/chessboard.urdf.xacro" />
+  <!-- Instanciate marker -->
+  <xacro:chessboard root_link="$(arg root_link)" texture="$(arg texture)"/>
+  
+  <gazebo>
+    <plugin name="hand_of_god" filename="libgazebo_ros_hand_of_god.so">
+      <linkName>$(arg root_link)</linkName>
+      <kl>0.4</kl>
+      <ka>0.01</ka>
+      <frameId>$(arg root_link)</frameId>
+    </plugin>
+  </gazebo>
+
+  <gazebo>
+    <plugin name="ground_truth" filename="libgazebo_ros_p3d.so">
+      <frameName>world</frameName>
+      <bodyName>$(arg root_link)</bodyName>
+      <topicName>smocap/$(arg root_link)_truth</topicName>
+      <updateRate>30.0</updateRate>
+    </plugin>
+  </gazebo>
+
+</robot>

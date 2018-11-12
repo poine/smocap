@@ -1,51 +1,77 @@
 <?xml version="1.0"?>
 <robot name="smocap_chessboard" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <xacro:property name="chsbrd_dx" value="1.0" />
-  <xacro:property name="chsbrd_dy" value="1.0" />
-  <xacro:property name="chsbrd_dz" value="0.01" />
+  <xacro:property name="chsbrd_dx"   value="1.0" />
+  <xacro:property name="chsbrd_dy"   value="1.0" />
+  <xacro:property name="chsbrd_dz"   value="0.01" />
   <xacro:property name="chsbrd_mass" value="0.01" />
+  <xacro:property name="chsbrd_z"    value="${-chsbrd_dz/2.}" />  <!-- place origin on face -->
+  
 
-
-  <!-- Inertia macros -->
+  <!-- Include inertia macros -->
   <xacro:include filename="$(find smocap)/urdf/inertias.urdf.xacro" />
 
-  <link name="chessboard_link">
+  <xacro:macro name="chessboard" params="root_link texture static">
+    <link name="${root_link}">
+      <visual>
+	<origin xyz="0 0 ${chsbrd_z}" rpy="0 0 0"/>
+	<geometry>
+          <box size="${chsbrd_dx} ${chsbrd_dy} ${chsbrd_dz}"/>
+	</geometry>
+      </visual>
+      <collision>
+	<origin xyz="0 0 ${chsbrd_z}" rpy="0 0 0"/>
+	<geometry>
+          <box size="${chsbrd_dx} ${chsbrd_dy} ${chsbrd_dz}"/>
+	</geometry>
+      </collision>
+      <xacro:inertial_cuboid_with_pose mass="${chsbrd_mass}" x_length="${chsbrd_dx}" y_length="${chsbrd_dy}" z_length="${chsbrd_dz}">
+	<origin xyz="0 0 ${chsbrd_z}" rpy="0 0 0"/>
+      </xacro:inertial_cuboid_with_pose>
+    </link>
+
+    <xacro:property name="bgdx" value="${chsbrd_dx*1.01}"/>
+    <xacro:property name="bgdy" value="${chsbrd_dy*1.01}"/>
+    <xacro:property name="bgdz" value="${chsbrd_dz*1.00}"/>
+    <xacro:property name="bgz"  value="${chsbrd_z-chsbrd_dz*0.1}" />  <!-- move background 10 percent behind chessboard -->
     
-    <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <!--<box size="${chsbrd_dx} ${chsbrd_dy} ${chsbrd_dz}"/>-->
-        <mesh filename="package://smocap/meshes/chessboard.dae"/>
-      </geometry>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <box size="${chsbrd_dx} ${chsbrd_dy} ${chsbrd_dz}"/>
-      </geometry>
-    </collision>
-    <xacro:inertial_cuboid_with_pose mass="${chsbrd_mass}" x_length="${chsbrd_dx}" y_length="${chsbrd_dy}" z_length="${chsbrd_dz}">
-      <origin xyz="0.00  0.00 0" rpy="0 0 0"/>
-    </xacro:inertial_cuboid_with_pose>
-  </link>
+    <link name="background_link">
+      <visual>
+	<origin xyz="0 0 ${bgz}" rpy="0 0 0"/>
+	<geometry>
+          <box size="${bgdx} ${bgdy} ${bgdz}"/>
+	</geometry>
+      </visual>
+      <collision>
+	<origin xyz="0 0 ${bgz}" rpy="0 0 0"/>
+	<geometry>
+          <box size="${bgdx} ${bgdy} ${bgdz}"/>
+	</geometry>
+      </collision>
+      <xacro:inertial_cuboid_with_pose mass="${chsbrd_mass}" x_length="${bgdx}" y_length="${bgdy}" z_length="${bgdz}">
+	<origin xyz="0 0 ${bgz}" rpy="0 0 0"/>
+      </xacro:inertial_cuboid_with_pose>
+    </link>
 
-  <gazebo>
-    <plugin name="hand_of_god" filename="libgazebo_ros_hand_of_god.so">
-      <linkName>chessboard_link</linkName>
-      <kl>0.5</kl>
-      <ka>0.003</ka>
-      <frameId>chessboard_link</frameId>
-    </plugin>
-  </gazebo>
+    <joint name="fixed" type="fixed">
+      <parent link="${root_link}"/>
+      <child link="background_link"/>
+    </joint>
+    
+    <gazebo reference="${root_link}">
+      <!--<material>Gazebo/Orange</material>-->
+      <material>${texture}</material>
+    </gazebo>
 
-  <gazebo>
-    <plugin name="ground_truth" filename="libgazebo_ros_p3d.so">
-      <frameName>world</frameName>
-      <bodyName>chessboard_link</bodyName>
-      <topicName>smocap/chessboard_truth</topicName>
-      <updateRate>30.0</updateRate>
-    </plugin>
-  </gazebo>
+    <gazebo reference="background_link">
+      <material>Gazebo/White</material>
+    </gazebo>
+    
+    <xacro:if value="${static}">
+      <gazebo>
+	<static>true</static>
+      </gazebo>
+    </xacro:if>
+  </xacro:macro>
 
 </robot>

@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!--
+ Loads a fixed camera in gazebo
+-->
+<launch>
+  <arg name="camera_id" default="1"/>
+  
+  <arg name="pos_x" default="0."/>
+  <arg name="pos_y" default="0."/>
+  <arg name="pos_z" default="0."/>
+
+  <arg name="rot_R" default="0."/>
+  <arg name="rot_P" default="0."/>
+  <arg name="rot_Y" default="0."/>
+  
+  <!-- loads URDF description -->
+  <param name="smocap_camera_$(arg camera_id)_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/camera_single.urdf camera_id:=$(arg camera_id) camera_x:=$(arg pos_x) camera_y:=$(arg pos_y) camera_z:=$(arg pos_z) camera_R:=$(arg rot_R) camera_P:=$(arg rot_P) camera_Y:=$(arg rot_Y)"/>
+
+  <!-- spawn camera in gazebo -->
+  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
+	args="-urdf -model camera_$(arg camera_id) -param smocap_camera_$(arg camera_id)_description" />
+
+  <!-- publish camera tf -->
+  <node name="smocap_camera_$(arg camera_id)_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" >
+    <remap from="robot_description" to="smocap_camera_$(arg camera_id)_description" />
+  </node>
+
+  <!--
+  <node pkg="tf" type="static_transform_publisher" name="world_to_map_publisher" args="0. 0. 0 0 0 0 /world /map 100"/>
+ -->
+  
+</launch>
+

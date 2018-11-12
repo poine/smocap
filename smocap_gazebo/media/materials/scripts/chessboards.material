@@ -1,0 +1,16 @@
+material ChessBoard8x6{
+    technique
+    {
+        pass
+        {
+            texture_unit
+            {
+                texture chessboard_01.jpg
+                scale 1 1
+            }
+        }   
+    }
+}
+
+
+

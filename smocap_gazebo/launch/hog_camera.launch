@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="camera_id" default="1"/>
+
+  <!-- loads URDF description -->
+  <param name="smocap_camera_$(arg camera_id)_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/hog_camera.urdf.xacro camera_id:=$(arg camera_id)" />
+
+  <!-- spawn camera in gazebo -->
+  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
+	args="-urdf -model camera_$(arg camera_id) -param smocap_camera_$(arg camera_id)_description" />
+
+  <!-- Launch marker remote control -->
+  <!--
+  <node name="smocap_marker_remote_control" pkg="smocap_gazebo" type="hog_remote.py">
+    <param name="initial_location" value="1, 1, 1"/>
+    <param name="controlled_link" value="camera_root_link"/>
+  </node>
+  -->
+</launch>

@@ -3,6 +3,7 @@
 
   <xacro:arg name="root_link" default="irm_link"/>
   <xacro:arg name="mesh" default="ir_marker.dae"/>
+  <xacro:arg name="texture" default="unused"/>
   
   <!-- Marker macros -->
   <xacro:include filename="$(find smocap)/urdf/ir_marker.urdf.xacro" />
@@ -12,7 +13,7 @@
   <gazebo>
     <plugin name="hand_of_god" filename="libgazebo_ros_hand_of_god.so">
       <linkName>$(arg root_link)</linkName>
-      <kl>0.5</kl>
+      <kl>0.4</kl>
       <ka>0.003</ka>
       <frameId>$(arg root_link)</frameId>
     </plugin>
