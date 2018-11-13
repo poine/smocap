@@ -6,7 +6,9 @@
 <launch>
 
   <!-- loads URDF description -->
-  <param name="smocap_camera_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/camera_single.urdf"/>
+  <arg name="cam_z" default="2." />
+  <arg name="cam_P" default="$(eval pi/2)" />
+  <param name="smocap_camera_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/camera_single.urdf camera_z:=$(arg cam_z) camera_P:=$(arg cam_P)"/>
 
   <!-- spawn camera in gazebo -->
   <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
@@ -20,15 +22,15 @@
  <node pkg="tf" type="static_transform_publisher" name="world_to_map_publisher" args="0. 0. 0 0 0 0 /world /map 100"/>
  
   <!-- spawn marker localization node -->
-  <!--
+  <!-- -->
   <node name="smocap_node" pkg="smocap" type="smocap_node.py">
     <param name="publish_image"     type="bool"   value="true"  />
     <param name="publish_est"       type="bool"   value="true"  />
-    <param name="cameras"           type="string" value="camera"/>
+    <param name="cameras"           type="string" value="camera_1"/>
     <param name="img_encoding"      type="string" value="rgb8"  />
     <param name="detector_cfg_path" type="string" value="$(find smocap)/params/gazebo_detector_cfg.yaml" />
     <param name="trap_losses"       type="bool"   value="true"  />
   </node>
-  -->
+ <!-- -->
   
 </launch>
