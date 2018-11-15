@@ -8,7 +8,7 @@
   <!-- Import marker macros -->
   <xacro:include filename="$(find smocap)/urdf/chessboard.urdf.xacro" />
   <!-- Instanciate marker -->
-  <xacro:chessboard root_link="$(arg root_link)" texture="$(arg texture)"/>
+  <xacro:chessboard root_link="$(arg root_link)" texture="$(arg texture)" static="false"/>
   
   <gazebo>
     <plugin name="hand_of_god" filename="libgazebo_ros_hand_of_god.so">

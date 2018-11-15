@@ -10,6 +10,7 @@ import utils
 import pdb
 
 import smocap.shapes
+from smocap.camera_system import *
 from smocap.camera import *
 from smocap.detector import *
 #import smocap.camera

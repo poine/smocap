@@ -42,3 +42,12 @@ def tr_of_T(T):
 
 def transform(a_to_b_T, p_a):
     return np.dot(a_to_b_T[:3,:3], p_a) + a_to_b_T[:3,3]
+
+# TF messages
+def list_of_position(p): return (p.x, p.y, p.z)
+def list_of_orientation(q): return (q.x, q.y, q.z, q.w)
+def t_q_of_transf_msg(transf_msg):
+    return list_of_position(transf_msg.translation), list_of_orientation(transf_msg.rotation)
+def _position_and_orientation_from_T(p, q, T):
+    p.x, p.y, p.z = T[:3, 3]
+    q.x, q.y, q.z, q.w = tf.transformations.quaternion_from_matrix(T)

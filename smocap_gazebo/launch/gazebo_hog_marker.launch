@@ -7,8 +7,8 @@
 
   <!-- Marker Configuration -->
   <arg name="marker_name" default="default_marker"/>
-  <arg name="marker_urdf" default="hog_ir_marker.urdf.xacro"/>
-  <arg name="marker_mesh" default="ir_marker_5.dae"/>
+  <arg name="marker_urdf" default="hog_ir_marker.urdf.xacro"/> <!-- hog_chessboard.urdf.xacro -->
+  <arg name="marker_mesh" default="ir_marker.dae"/>
   <arg name="marker_texture" default="ChessBoard8x6"/>
   
   <!-- Launch Gazebo with the default world -->
