@@ -1,12 +1,10 @@
 # Smocap
-Simple ROS mocap node
-
-Smocap uses fixed (wall or ceiling mounted) cameras to detect and localize moving markers.
+Smocap is a simple ROS mocap node. It uses fixed (wall or ceiling mounted) cameras to detect and localize moving markers.
 
 
 <table>
   <tr>
-  <td><img src="https://lh4.googleusercontent.com/Krs0lGRR-d27itPQVsvEPa2Y8CNcFzQyiw5EC-Wtf49iDOlMmXB-KBIYJGIUjqpqTskmwMb3jtMZOfQllg9a9MTqbuG-0_z8wcmCDFEqZ-3Tcr5TFOi0-G1rV7gV_cErPMQXAAJG" alt="Ceiling mounted camera" width="304" /></td>
+  <td><img src="https://lh4.googleusercontent.com/Krs0lGRR-d27itPQVsvEPa2Y8CNcFzQyiw5EC-Wtf49iDOlMmXB-KBIYJGIUjqpqTskmwMb3jtMZOfQllg9a9MTqbuG-0_z8wcmCDFEqZ-3Tcr5TFOi0-G1rV7gV_cErPMQXAAJG" alt="Ceiling mounted camera" width="470" /></td>
   <td>
 <a href="https://youtu.be/rcXm4QCaq64"><img src="http://img.youtube.com/vi/rcXm4QCaq64/0.jpg" width="300" /></a>
 <a href="https://youtu.be/X8M0IHWhTcs"><img src="http://img.youtube.com/vi/X8M0IHWhTcs/0.jpg" width="300" /></a>
@@ -20,6 +18,7 @@ Smocap uses fixed (wall or ceiling mounted) cameras to detect and localize movin
   </tr>
   </table>
 
+[Documentation index](https://poine.github.io/smocap/)
 
 ## Running in simulation
 
