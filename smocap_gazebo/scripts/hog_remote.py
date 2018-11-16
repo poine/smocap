@@ -6,7 +6,7 @@ import roslib, rospy, tf,  tf2_ros, geometry_msgs.msg
 
 import pdb
 
-import utils
+import smocap.utils
 
 class Node:
     '''
@@ -59,7 +59,7 @@ class Node:
         # fetch pose error
         try:
             d2a = self.tfBuffer.lookup_transform(self.ctl_link_desired, self.ctl_link_actual, rospy.Time())
-            self.pose_err = utils.t_q_of_transf_msg(d2a.transform)
+            self.pose_err = smocap.utils.t_q_of_transf_msg(d2a.transform)
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
             self.pose_err = (None, None)
 
@@ -67,7 +67,7 @@ class Node:
     def get_marker_pose(self):
         try:
             w2a = self.tfBuffer.lookup_transform('world', self.ctl_link_actual, rospy.Time())
-            w2a_t, w2a_q = utils.t_q_of_transf_msg(w2a.transform) 
+            w2a_t, w2a_q = smocap.utils.t_q_of_transf_msg(w2a.transform) 
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
             w2a_t, w2a_q = None, None
         return w2a_t, w2a_q
