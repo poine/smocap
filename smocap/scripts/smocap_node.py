@@ -8,6 +8,9 @@ import pdb
 
 import smocap, smocap_node_publisher, utils, smocap.rospy_utils
 
+
+
+
 def round_pt(p): return (int(p[0]), int(p[1]))
 
 
@@ -108,7 +111,31 @@ class FrameSearcher(threading.Thread):
 
 
 
-            
+class NodePublisher:
+    def __init__(self, cam_sys):
+        self.pose_pub = smocap.rospy_utils.PosePublisher()
+        self.fov_pub =  smocap.rospy_utils.FOVPublisher(cam_sys)
+        self.stat_pub = smocap.rospy_utils.StatusPublisher()
+        self.img_pub = smocap.rospy_utils.ImgPublisher(cam_sys)
+
+    def publish_pose(self, T_m2w):
+        self.pose_pub.publish(T_m2w)
+
+
+    def write_status(self, _timer):
+        txt = '\nTime: {}\n'.format(rospy.Time.now().to_sec())
+        txt += 'Timing:\n'
+        for i, (fps, skipped) in enumerate(zip(_timer.fps, _timer.skipped)):
+            txt += (' camera {}: fps {:4.1f} skipped {:d}\n'.format(i, fps, skipped))
+        return txt
+    
+    def publish_periodic(self, _timer):
+        self.fov_pub.publish()
+        self.stat_pub.publish(self.write_status(_timer))
+        self.img_pub.publish([])
+
+
+
 class SMoCapNode:
 
     def __init__(self):
@@ -139,18 +166,10 @@ class SMoCapNode:
         
         self.smocap = smocap.SMoCap(self.cam_sys.get_cameras(), undistort=True, detector_cfg_path=detector_cfg_path)
 
-        self.smocap.marker.heigth_above_floor = 0.15#0.09
-        self.smocap.markers[0].heigth_above_floor = 0.15
+        self.smocap.marker.heigth_above_floor = 0.09
+        self.smocap.markers[0].heigth_above_floor = 0.09
 
-        self.publisher = smocap_node_publisher.SmocapNodePublisher(self.smocap)
-
-        
-        if self.publish_image:
-            self.image_pub = rospy.Publisher("/smocap/image_debug", sensor_msgs.msg.Image, queue_size=1)
-
-        if self.publish_est:
-            self.est_marker_pub = rospy.Publisher('/smocap/est_marker', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
-            self.est_body_pub = rospy.Publisher('/smocap/est_body', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
+        self.publisher = NodePublisher(self.cam_sys)
 
         # Start frame searchers
         self.frame_searchers = [FrameSearcher(i, self.smocap) for i, c in enumerate(self.cam_sys.get_cameras())]
@@ -186,30 +205,6 @@ class SMoCapNode:
         return img_with_keypoints
 
 
-    def do_publish_est(self):
-        msg = geometry_msgs.msg.PoseWithCovarianceStamped()
-        if 1:
-            msg.header.frame_id = "world"
-            msg.header.stamp = rospy.Time.now()#self.last_frame_time
-            if self.run_mono_tracker:
-                utils._position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.irm_to_world_T)
-            else:
-                utils._position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.markers[0].irm_to_world_T)
-        if 0:
-            msg.header.frame_id = "ueye_enac_ceiling_1_6mm_optical_frame"
-            msg.header.stamp = rospy.Time.now()#self.last_frame_time
-            utils.position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.irm_to_cam_T)
-
-
-        #std_xy, std_z, std_rxy, std_rz = 0.05, 0.01, 0.5, 0.05
-        std_xy, std_z, std_rxy, std_rz = 0.1, 0.01, 0.5, 0.1
-        msg.pose.covariance[0]  = msg.pose.covariance[7] = std_xy**2
-        msg.pose.covariance[14] = std_z**2
-        msg.pose.covariance[21] = msg.pose.covariance[28] = std_rxy**2
-        msg.pose.covariance[35] = std_rz**2
-        self.est_marker_pub.publish(msg)
-        #utils._position_and_orientation_from_T(msg.pose.pose.position, msg.pose.pose.orientation, self.smocap.marker.body_to_world_T)
-        #self.est_body_pub.publish(msg)
         
         
     def img_callback(self, msg, camera_idx):
@@ -261,7 +256,7 @@ class SMoCapNode:
             else:
                 self.smocap.marker.observations[camera_idx].tracked = True
                 if self.publish_est:
-                    self.do_publish_est()
+                    self.publisher.publish_pose(self.smocap.marker.irm_to_world_T)
             finally:
                 if not any([o.tracked for o in self.smocap.marker.observations]):
                     self.smocap.marker.set_world_pose(None)
@@ -282,7 +277,8 @@ class SMoCapNode:
             f.stop()
 
     def periodic(self):
-        self.publisher.publish(self.timer, self.smocap)
+        self.publisher.publish_periodic(self.timer)#, self.smocap)
+
                 
 def main(args):
   rospy.init_node('smocap_node')

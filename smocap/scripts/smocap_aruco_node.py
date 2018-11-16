@@ -5,7 +5,7 @@ import sys, numpy as np, rospy, cv2
 import smocap
 import smocap.rospy_utils
 
-
+import pdb
 
 class Marker:
     def __init__(self, _id, corner):
@@ -30,12 +30,12 @@ class Observations:
 
         
 class ArucoMocap:
-    def __init__(self, cam_sys):
+    def __init__(self, cam_sys, marker_size):
         self.cam_sys = cam_sys
         self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
         self.aruco_params =  cv2.aruco.DetectorParameters_create()
         self.aruco_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
-        self.marker_size = 1.
+        self.marker_size = marker_size
         self.markers = {}
         #self.obs_by_markers = {}
         n_cam = len(cam_sys.get_cameras())
@@ -54,7 +54,7 @@ class ArucoMocap:
         except TypeError: # no marker detected
             #print(corners, mids, rejectedImgPoints)
             self.obs_by_cams[cam_idx] = None
-            print('no marker detected in cam {}'.format(cam_idx))
+            #print('no marker detected in cam {}'.format(cam_idx))
             return
         
         T_c2w = cam.cam_to_world_T
@@ -77,20 +77,24 @@ class SMoCapNode:
 
     def __init__(self):
         cam_names = rospy.get_param('~cameras', 'camera_1').split(',')
+        marker_size = rospy.get_param('~marker_size', 1.)
+        rospy.loginfo('using marker size {} m'.format(marker_size))
         self.low_freq = 2.
         self.cam_sys = smocap.rospy_utils.CamSysRetriever().fetch(cam_names)
         self.img_pub = smocap.rospy_utils.ImgPublisher(self.cam_sys)
         self.pose_pub = smocap.rospy_utils.PosePublisher()
+        self.fov_pub = smocap.rospy_utils.FOVPublisher(self.cam_sys)
         self.cam_lst = smocap.rospy_utils.CamerasListener(cams=cam_names, cbk=self.on_image)
-        self.mocap = ArucoMocap(self.cam_sys)
+        self.mocap = ArucoMocap(self.cam_sys, marker_size)
         
     def periodic(self):
-        imgs = self.cam_lst.get_images()
+        imgs = self.cam_lst.get_images_as_rgb()
         for cam, img in zip(self.cam_sys.get_cameras(), imgs):
             if  img is not None:
                 self.mocap.draw(img, cam)
         self.img_pub.publish(imgs)
-                
+        self.fov_pub.publish()
+        
     def run(self):
         rate = rospy.Rate(1./self.low_freq)
         try:
@@ -102,7 +106,11 @@ class SMoCapNode:
     
     def on_image(self, img, cam_idx):
         self.mocap.process_image(img, cam_idx)
-        self.pose_pub.publish(self.mocap.markers[0].T_m2w)
+        try:
+            mid = self.mocap.markers.keys()[0]
+            self.pose_pub.publish(self.mocap.markers[mid].T_m2w)
+        except IndexError:
+            pass # no marker tracked
 
 
         

@@ -28,7 +28,7 @@ Smocap is a simple ROS mocap node. It uses fixed (wall or ceiling mounted) camer
 
 Read [Installing from source](http://wiki.ros.org/Installation/Source) or
 
-  1. Install ROS and create a catkin workspace:
+  1. Install ROS, then create a catkin workspace:
 ```
 mkdir -p ~/catkin_ws/src
 cd ~/catkin_ws/src
