@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 import roslib
 #roslib.load_manifest('my_package')
-import sys , time, numpy as np, rospy, cv2, sensor_msgs.msg, geometry_msgs.msg, cv_bridge
+import os, sys , time, numpy as np, rospy, cv2, sensor_msgs.msg, geometry_msgs.msg, cv_bridge
 import tf.transformations, tf2_ros
 import threading
 import pdb
 
-import smocap, smocap_node_publisher, utils
+import smocap, smocap_node_publisher, utils, smocap.rospy_utils
 
 def round_pt(p): return (int(p[0]), int(p[1]))
 
@@ -30,7 +30,7 @@ class LossesTrapper:
         cv2.imwrite(img_path, img)
 
     def stop(self):
-        with open('/tmp/lost_log.npz', 'wb') as f:
+        with open(os.path.join(self.img_dir, 'lost_log.npz'), 'wb') as f:
             np.savez(f, self.lost_log)
 
 
@@ -114,10 +114,12 @@ class SMoCapNode:
     def __init__(self):
         self.publish_image = rospy.get_param('~publish_image', True)
         self.publish_est =   rospy.get_param('~publish_est', True)
-        camera_names =       rospy.get_param('~cameras', 'camera')
+        camera_names =       rospy.get_param('~cameras', 'camera_1').split(',')
         self.img_encoding =  rospy.get_param('~img_encoding', 'mono8')
         detector_cfg_path =    rospy.get_param('~detector_cfg_path', '/home/poine/work/smocap.git/smocap/params/f111_detector_default.yaml')
         self.trap_losses = rospy.get_param('~trap_losses', False)
+        self.trap_losses_img_dir = rospy.get_param('~trap_losses_img_dir', '/home/poine/work/smocap.git/smocap/test/enac_demo_z/losses')
+        
         self.run_multi_tracker = rospy.get_param('~run_multi_tracker', False)
         self.run_mono_tracker = rospy.get_param('~run_mono_tracker', True)
         
@@ -128,13 +130,14 @@ class SMoCapNode:
         rospy.loginfo('   run_mono_tracker: "{}"'.format(self.run_mono_tracker))
         rospy.loginfo('   run_multi_tracker: "{}"'.format(self.run_multi_tracker))
         
-        cams = self.retrieve_cameras(camera_names)
-        self.timer = Timer(len(cams))
+        # Retrieve camera configuration from ROS
+        self.cam_sys = smocap.rospy_utils.CamSysRetriever().fetch(camera_names)
+        self.timer = Timer(self.cam_sys.nb_cams())
 
         if self.trap_losses:
-            self.losses_trapper = LossesTrapper('/home/poine/work/smocap.git/test/F111_misc/')
+            self.losses_trapper = LossesTrapper(self.trap_losses_img_dir)
         
-        self.smocap = smocap.SMoCap(cams, undistort=True, detector_cfg_path=detector_cfg_path)
+        self.smocap = smocap.SMoCap(self.cam_sys.get_cameras(), undistort=True, detector_cfg_path=detector_cfg_path)
 
         self.smocap.marker.heigth_above_floor = 0.15#0.09
         self.smocap.markers[0].heigth_above_floor = 0.15
@@ -150,40 +153,16 @@ class SMoCapNode:
             self.est_body_pub = rospy.Publisher('/smocap/est_body', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
 
         # Start frame searchers
-        self.frame_searchers = [FrameSearcher(i, self.smocap) for i, c in enumerate(cams)]
+        self.frame_searchers = [FrameSearcher(i, self.smocap) for i, c in enumerate(self.cam_sys.get_cameras())]
         for f in self.frame_searchers: f.start()
         
         # Subscribe to video streams
-        self.bridges = [cv_bridge.CvBridge() for c in cams]
-        for cam_idx, cam in enumerate(self.smocap.cameras):
+        self.bridges = [cv_bridge.CvBridge() for c in self.cam_sys.get_cameras()]
+        for cam_idx, cam in enumerate(self.cam_sys.get_cameras()):
             cam_img_topic = '/{}/image_raw'.format(cam.name)
             rospy.Subscriber(cam_img_topic, sensor_msgs.msg.Image, self.img_callback, cam_idx, queue_size=1)
             rospy.loginfo(' subscribed to ({})'.format(cam_img_topic))
 
-    def retrieve_cameras(self, camera_names):
-        ''' retrieve camera intrinsics (calibration) and extrinsics (pose) '''
-        self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
-        cams = []
-        for cam_idx, camera_name in enumerate(camera_names.split(',')):
-            cam = smocap.Camera(cam_idx, camera_name, self.img_encoding)
-            rospy.loginfo(' adding camera: "{}"'.format(camera_name))
-            cam_info_topic = '/{}/camera_info'.format(camera_name)
-            cam_info_msg = rospy.wait_for_message(cam_info_topic, sensor_msgs.msg.CameraInfo)
-            cam.set_calibration(np.array(cam_info_msg.K).reshape(3,3), np.array(cam_info_msg.D), cam_info_msg.width, cam_info_msg.height)
-            rospy.loginfo('  retrieved calibration ({})'.format(cam_info_topic))
-
-            while not cam.is_localized():
-                cam_frame = '{}_optical_frame'.format(camera_name)
-                try:
-                    world_to_camo_transf = self.tf_buffer.lookup_transform(target_frame=cam_frame, source_frame='world', time=rospy.Time(0))
-                    world_to_camo_t, world_to_camo_q = utils.t_q_of_transf_msg(world_to_camo_transf.transform)
-                    cam.set_location(world_to_camo_t, world_to_camo_q)
-                except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-                    rospy.loginfo_throttle(1., " waiting to get camera location")
-            rospy.loginfo('  retrieved pose ({})'.format(cam_frame))
-            cams.append(cam)
-        return cams
         
     def draw_debug_image(self, img, draw_true_markers=False):
         img_with_keypoints = self.smocap.draw_debug_on_image(img, 0)

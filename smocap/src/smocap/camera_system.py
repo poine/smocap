@@ -16,3 +16,6 @@ class CameraSystem:
 
     def get_camera(self, idx):
         return self.cameras[idx]
+
+    def nb_cams(self):
+        return len(self.cameras)

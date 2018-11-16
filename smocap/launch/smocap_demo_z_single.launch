@@ -6,7 +6,7 @@
   
   <arg name="camera1_name" value="ueye_enac_z_1" />
   <arg name="camera1_id"   value="140" /> <!-- closest camera -->
-  <!-- <arg name="camera1_id"   value="141" /> --> <!-- far end camera -->
+  <arg name="camera2_id"   value="141" /> <!-- far end camera -->
   
   <!-- start cameras -->
   <!-- -->
