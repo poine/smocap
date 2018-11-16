@@ -8,13 +8,27 @@ import smocap.rospy_utils
 
 
 class Marker:
-    def __init__(self, _id):
+    def __init__(self, _id, corner):
         self.id = _id
 
     def set_pose(self, T_m2w):
         self.T_m2w = T_m2w
 
 
+# class Observation:
+#     def __init__(self, cam, marker):
+#         self.cam = cam
+#         self.marker = marker
+        
+#     def set_m2c(self, t_m2c, r_m2c):
+#         self.t_m2c, self.r_m2c = t_m2c, r_m2c
+#         self.T_m2c = smocap.utils.T_of_t_r(t_m2c, r_m2c)
+
+class Observations:
+    def __init__(self, corners, mids, t_m2cs, r_m2cs, objpoints):
+        self.corners, self.mids, self.t_m2cs, self.r_m2cs, self.objpoints = corners, mids, t_m2cs, r_m2cs, objpoints
+
+        
 class ArucoMocap:
     def __init__(self, cam_sys):
         self.cam_sys = cam_sys
@@ -23,47 +37,59 @@ class ArucoMocap:
         self.aruco_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
         self.marker_size = 1.
         self.markers = {}
+        #self.obs_by_markers = {}
+        n_cam = len(cam_sys.get_cameras())
+        self.obs_by_cams = [None for i in range(n_cam)]
+
         
     def process_image(self, img, cam_idx):
-        self.corners, self.ids, self.rejectedImgPoints = cv2.aruco.detectMarkers(img, self.aruco_dict, parameters=self.aruco_params)
-        
-        cam = self.cam_sys.get_cameras()[cam_idx]
-        T_c2w = cam.cam_to_world_T
-        self.r_m2cs, self.t_m2cs, self.objpoints = cv2.aruco.estimatePoseSingleMarkers(self.corners, self.marker_size, cam.K, cam.D)
+        corners, mids, rejectedImgPoints = cv2.aruco.detectMarkers(img, self.aruco_dict, parameters=self.aruco_params)
         try:
-            for mid, r_m2c, t_m2c in zip(self.ids, self.r_m2cs, self.t_m2cs):
+            for mid, corner in zip(mids, corners):
                 if mid[0] not in self.markers:
-                    self.markers[mid[0]] = Marker(mid[0])
-                T_m2c = smocap.utils.T_of_t_r(t_m2c, r_m2c)
-                T_m2w = np.dot(T_c2w, T_m2c)
-                self.markers[mid[0]].set_pose(T_m2w)
+                    self.markers[mid[0]] = Marker(mid[0], corner)
+            cam = self.cam_sys.get_camera(cam_idx)
+            r_m2cs, t_m2cs, objpoints = cv2.aruco.estimatePoseSingleMarkers(corners, self.marker_size, cam.K, cam.D)
+            self.obs_by_cams[cam_idx] = Observations(corners, mids, t_m2cs, r_m2cs, objpoints)
         except TypeError: # no marker detected
-            #print(self.corners, self.ids, self.rejectedImgPoints)
-            print('no marker detected')
+            #print(corners, mids, rejectedImgPoints)
+            self.obs_by_cams[cam_idx] = None
+            print('no marker detected in cam {}'.format(cam_idx))
+            return
+        
+        T_c2w = cam.cam_to_world_T
+        for mid, r_m2c, t_m2c in zip(mids, r_m2cs, t_m2cs):
+            T_m2c = smocap.utils.T_of_t_r(t_m2c, r_m2c)
+            T_m2w = np.dot(T_c2w, T_m2c)
+            self.markers[mid[0]].set_pose(T_m2w)
+
             
     def draw(self, img, cam):
-        cv2.aruco.drawDetectedMarkers(img, self.corners, self.ids)
-        if self.ids is not None:
-            for r_m2c, t_m2c in zip(self.r_m2cs, self.t_m2cs):
+        o =  self.obs_by_cams[cam._id]
+        if o is None: return
+        cv2.aruco.drawDetectedMarkers(img, o.corners, o.mids)
+        for r_m2c, t_m2c in zip(o.r_m2cs, o.t_m2cs):
                 cv2.aruco.drawAxis(img, cam.K, cam.D, r_m2c, t_m2c, self.marker_size)
         return img
         
 
 class SMoCapNode:
 
-    def __init__(self, cam_names= ['camera_1']):
+    def __init__(self):
+        cam_names = rospy.get_param('~cameras', 'camera_1').split(',')
         self.low_freq = 2.
-        self.img_pub = smocap.rospy_utils.ImgPublisher()
-        self.pose_pub = smocap.rospy_utils.PosePublisher()
         self.cam_sys = smocap.rospy_utils.CamSysRetriever().fetch(cam_names)
+        self.img_pub = smocap.rospy_utils.ImgPublisher(self.cam_sys)
+        self.pose_pub = smocap.rospy_utils.PosePublisher()
         self.cam_lst = smocap.rospy_utils.CamerasListener(cams=cam_names, cbk=self.on_image)
         self.mocap = ArucoMocap(self.cam_sys)
         
-    def periodic(self, cam_idx=0):
-        img = self.cam_lst.get_image(cam_idx)
-        if  img is not None:
-            img = self.mocap.draw(img, self.cam_sys.get_camera(cam_idx))
-            self.img_pub.publish(img)
+    def periodic(self):
+        imgs = self.cam_lst.get_images()
+        for cam, img in zip(self.cam_sys.get_cameras(), imgs):
+            if  img is not None:
+                self.mocap.draw(img, cam)
+        self.img_pub.publish(imgs)
                 
     def run(self):
         rate = rospy.Rate(1./self.low_freq)
@@ -75,7 +101,6 @@ class SMoCapNode:
             pass    
     
     def on_image(self, img, cam_idx):
-        self.image = img # save image for low rate display callback
         self.mocap.process_image(img, cam_idx)
         self.pose_pub.publish(self.mocap.markers[0].T_m2w)
 

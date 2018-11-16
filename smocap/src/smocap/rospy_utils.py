@@ -1,5 +1,6 @@
 import numpy as np
 import rospy, sensor_msgs.msg, geometry_msgs.msg, cv_bridge, tf2_ros
+import pdb
 
 import smocap.utils
 
@@ -24,19 +25,32 @@ class CamerasListener:
             except cv_bridge.CvBridgeError as e:
                 print(e)
 
+    def get_images(self):
+        return self.images
+
+        
     def get_image(self, cam_idx):
         return self.images[cam_idx]
                 
         
 class ImgPublisher:
-    def __init__(self):
+    def __init__(self, cam_sys):
         img_topic = "/smocap/image_debug"
         rospy.loginfo(' publishing on ({})'.format(img_topic))
         self.image_pub = rospy.Publisher(img_topic, sensor_msgs.msg.Image, queue_size=1)
         self.bridge = cv_bridge.CvBridge()
+        cams = cam_sys.get_cameras()
+        w, h = np.sum([cam.w for cam in cams]), np.max([cam.h for cam in cams])
+        self.img = np.zeros((h, w, 3), dtype='uint8')
 
-    def publish(self, img):
-        self.image_pub.publish(self.bridge.cv2_to_imgmsg(img, "rgb8"))
+    def publish(self, imgs):
+        x0 = 0
+        for img in imgs:
+            if img is not None:
+                w = img.shape[1]; x1 = x0+w
+                self.img[:,x0:x1] = img
+                x0 = x1
+        self.image_pub.publish(self.bridge.cv2_to_imgmsg(self.img, "rgb8"))
 
 
 class PosePublisher:

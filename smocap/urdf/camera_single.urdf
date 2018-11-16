@@ -9,7 +9,7 @@
   <xacro:arg name="camera_R"  default="0."/>
   <xacro:arg name="camera_P"  default="0."/> <!--${PI/2}"/>-->
   <xacro:arg name="camera_Y"  default="0."/>
-  
+  <xacro:arg name="camera_fps"  default="10."/>
 
   <!-- Import camera macros -->
   <xacro:include filename="$(find smocap)/urdf/camera.urdf.xacro" />
@@ -18,6 +18,6 @@
   <xacro:smocap_camera _cid="$(arg camera_id)" _root_link="world"
 		       _x="$(arg camera_x)" _y="$(arg camera_y)" _z="$(arg camera_z)"
 		       _rx="$(arg camera_R)" _ry="$(arg camera_P)" _rz="$(arg camera_Y)"
-                       _k1="0." _k2="0." _k3="0." _t1="0." _t2="0." _fps="30." _static="true"/>
+                       _k1="0." _k2="0." _k3="0." _t1="0." _t2="0." _fps="$(arg camera_fps)" _static="true"/>
 
 </robot>

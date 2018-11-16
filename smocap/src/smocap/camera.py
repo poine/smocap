@@ -1,10 +1,10 @@
 import numpy as np, cv2
-
+import pdb
 import smocap.utils
 
 class Camera:
-    def __init__(self, name, encoding='mono8'):
-        self.name = name
+    def __init__(self, _id, name, encoding='mono8'):
+        self._id, self.name = _id, name
         # camera matrix, distortion coefficients, inverted camera matrix
         self.K, self.D, self.invK = None, None, None
         # world to camera transform

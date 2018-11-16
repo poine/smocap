@@ -116,7 +116,7 @@ class SMoCapNode:
         self.publish_est =   rospy.get_param('~publish_est', True)
         camera_names =       rospy.get_param('~cameras', 'camera')
         self.img_encoding =  rospy.get_param('~img_encoding', 'mono8')
-        detector_cfg_path =    rospy.get_param('~detector_cfg_path', '/home/poine/work/smocap.git/params/f111_detector_default.yaml')
+        detector_cfg_path =    rospy.get_param('~detector_cfg_path', '/home/poine/work/smocap.git/smocap/params/f111_detector_default.yaml')
         self.trap_losses = rospy.get_param('~trap_losses', False)
         self.run_multi_tracker = rospy.get_param('~run_multi_tracker', False)
         self.run_mono_tracker = rospy.get_param('~run_mono_tracker', True)
@@ -165,8 +165,8 @@ class SMoCapNode:
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         cams = []
-        for camera_name in camera_names.split(','):
-            cam = smocap.Camera(camera_name, self.img_encoding)
+        for cam_idx, camera_name in enumerate(camera_names.split(',')):
+            cam = smocap.Camera(cam_idx, camera_name, self.img_encoding)
             rospy.loginfo(' adding camera: "{}"'.format(camera_name))
             cam_info_topic = '/{}/camera_info'.format(camera_name)
             cam_info_msg = rospy.wait_for_message(cam_info_topic, sensor_msgs.msg.CameraInfo)

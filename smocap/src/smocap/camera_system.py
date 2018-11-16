@@ -4,13 +4,12 @@ class CameraSystem:
 
     def __init__(self, **kwargs):
         cam_names = kwargs.get('cam_names', ['camera_1'])
-        self.cameras = [smocap.camera.Camera(cam_name) for cam_name in cam_names]
+        self.cameras = [smocap.camera.Camera(i, cam_name) for i, cam_name in enumerate(cam_names)]
         
     
     def read_from_file(self, dir_path):
         pass
     
-
 
     def get_cameras(self):
         return self.cameras

@@ -12,16 +12,18 @@
   <arg name="rot_R" default="0"/>
   <arg name="rot_P" default="0"/>
   <arg name="rot_Y" default="0"/>
+
+  <arg name="fps" default="10"/>
   
   <!-- loads URDF description -->
-  <param name="smocap_camera_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/camera_single.urdf camera_id:=1 camera_x:=$(arg pos_x) camera_y:=$(arg pos_y) camera_z:=$(arg pos_z) camera_R:=$(arg rot_R) camera_P:=$(arg rot_P) camera_Y:=$(arg rot_Y)"/>
+  <param name="smocap_camera_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/camera_single.urdf camera_id:=$(arg camera_id) camera_x:=$(arg pos_x) camera_y:=$(arg pos_y) camera_z:=$(arg pos_z) camera_R:=$(arg rot_R) camera_P:=$(arg rot_P) camera_Y:=$(arg rot_Y) camera_fps:=$(arg fps)"/>
 
   <!-- spawn camera in gazebo -->
   <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
-	args="-urdf -model smocap -param smocap_camera_description" />
+	args="-urdf -model camera_$(arg camera_id) -param smocap_camera_description" />
 
   <!-- publish camera and markers TF -->
-  <node name="smocap_camera_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" >
+  <node name="smocap_camera_$(arg camera_id)_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" >
     <remap from="robot_description" to="smocap_camera_description" />
   </node>
 
