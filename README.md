@@ -1,4 +1,6 @@
 # Smocap
+
+## 1. Introduction
 Smocap is a simple ROS mocap node. It uses fixed (wall or ceiling mounted) cameras to detect and localize moving markers.
 
 
@@ -20,7 +22,35 @@ Smocap is a simple ROS mocap node. It uses fixed (wall or ceiling mounted) camer
 
 [Documentation index](https://poine.github.io/smocap/)
 
-## Running in simulation
+## 2. Quickstart
+
+### 2.1 Building the package
+
+Read [Installing from source](http://wiki.ros.org/Installation/Source) or
+
+  1. Install ROS and create a catkin workspace:
+```
+mkdir -p ~/catkin_ws/src
+cd ~/catkin_ws/src
+catkin_init_workspace
+cd ~/catkin_ws
+catkin_make
+```
+
+  2. Download sources:
+```
+cd ~/catkin_ws/src
+git clone https://github.com/poine/smocap.git
+```
+
+  3. Build the package
+```
+cd ~/catkin_ws/
+catkin_make
+```
+
+
+### 2.2 Running a simulation
 
  1.  Start gazebo and load a single (remotely controlled) infrared marker:
 ```
@@ -32,53 +62,11 @@ roslaunch smocap_gazebo single_cam.launch camera_id:=1 pos_x:=0. pos_y:=0. pos_z
  ``` 
  3. Start the mocap node:
 ``` 
-rosrun smocap smocap_node.py _cameras:=camera_1 _detector_cfg_path:=/home/poine/work/smocap.git/smocap/params/gazebo_dettor_cfg.yaml _img_encoding:=rgb8
+rosrun smocap smocap_node.py _cameras:=camera_1 _detector_cfg_path:=`rospack find smocap`/params/gazebo_dettor_cfg.yaml _img_encoding:=rgb8
 ```
  
  4. View what's going on 
 ```
 rviz
 ```
-
-
-
-## Running real setup
-
- * have a fixed camera output an image topic in ROS
- 
-
-
-
-
-
-
-
-
-### Aruco
-
-
-#### One marker, one camera
- 1. starting gazebo spawning an hog aruco marker:
-```
-roslaunch smocap_gazebo gazebo_hog_marker.launch marker_urdf:=hog_chessboard.urdf.xacro marker_texture:=Aruco0
-```
- 2. spawning a single fixed camera in gazebo:
-```
-roslaunch smocap_gazebo  single_cam.launch pos_x:=0. pos_y:=0. pos_z:=3. rot_P:=1.5707963267948966
-```
-
- 3. launching the mocap node
-```
-rosrun smocap smocap_aruco_node.py _cameras:=camera_1
-```
-
-#### One marker, two cameras
- * second camera:
-```
-roslaunch smocap_gazebo  single_cam.launch camera_id:=2 pos_x:=1. pos_y:=1. pos_z:=3. rot_P:=1.5707963267948966
-```
-* mocap node with two cameras
-```
-rosrun smocap smocap_aruco_node.py _cameras:=camera_1,camera_2
-```
-
+look for topics staring with smocap...

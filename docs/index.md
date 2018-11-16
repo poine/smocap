@@ -7,4 +7,4 @@ layout: default
 # Index
 
   * [Introduction](introduction.html)
-
+  * [Simulation](simulation.html)
