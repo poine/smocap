@@ -10,6 +10,8 @@
   <xacro:arg name="camera_R"  default="0."/>
   <xacro:arg name="camera_P"  default="0."/>
   <xacro:arg name="camera_Y"  default="0."/>
+  <xacro:arg name="camera_w"  default="640"/>
+  <xacro:arg name="camera_h"  default="480"/>
 
   <xacro:arg name="camera_root_link"  default="camera_root_link"/>
   
@@ -21,6 +23,7 @@
   <xacro:smocap_camera _cid="$(arg camera_id)" _root_link="$(arg camera_root_link)"
 		       _x="$(arg camera_x)" _y="$(arg camera_y)" _z="$(arg camera_z)"
 		       _rx="$(arg camera_R)" _ry="$(arg camera_P)" _rz="$(arg camera_Y)"
+		       _w="$(arg camera_w)" _h="$(arg camera_h)"
 		       _k1="0." _k2="0." _k3="0." _t1="0." _t2="0." _fps="30." _static="false"/>
 
   <gazebo>

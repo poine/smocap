@@ -3,13 +3,14 @@
 import sys, numpy as np, rospy, cv2
 
 import smocap
-import smocap.rospy_utils
+import smocap.rospy_utils, smocap.real_time_utils
 
 import pdb
 
 class Marker:
     def __init__(self, _id, corner):
         self.id = _id
+        self.set_pose(np.eye(4))
 
     def set_pose(self, T_m2w):
         self.T_m2w = T_m2w
@@ -32,6 +33,7 @@ class Observations:
 class ArucoMocap:
     def __init__(self, cam_sys, marker_size):
         self.cam_sys = cam_sys
+        self.cameras = cam_sys.get_cameras() # remove me
         self.aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
         self.aruco_params =  cv2.aruco.DetectorParameters_create()
         self.aruco_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
@@ -41,8 +43,11 @@ class ArucoMocap:
         n_cam = len(cam_sys.get_cameras())
         self.obs_by_cams = [None for i in range(n_cam)]
 
-        
-    def process_image(self, img, cam_idx):
+
+    def detect_markers_in_full_frame(self, img, cam_idx, stamp):
+        '''
+        Called by frame searcher thread
+        '''
         corners, mids, rejectedImgPoints = cv2.aruco.detectMarkers(img, self.aruco_dict, parameters=self.aruco_params)
         try:
             for mid, corner in zip(mids, corners):
@@ -56,7 +61,9 @@ class ArucoMocap:
             self.obs_by_cams[cam_idx] = None
             #print('no marker detected in cam {}'.format(cam_idx))
             return
-        
+
+    
+    def process_image(self, img, cam_idx):
         T_c2w = cam.cam_to_world_T
         for mid, r_m2c, t_m2c in zip(mids, r_m2cs, t_m2cs):
             T_m2c = smocap.utils.T_of_t_r(t_m2c, r_m2c)
@@ -66,9 +73,9 @@ class ArucoMocap:
             
     def draw(self, img, cam):
         o =  self.obs_by_cams[cam._id]
-        if o is None: return
-        cv2.aruco.drawDetectedMarkers(img, o.corners, o.mids)
-        for r_m2c, t_m2c in zip(o.r_m2cs, o.t_m2cs):
+        if o is not None:
+            cv2.aruco.drawDetectedMarkers(img, o.corners, o.mids)
+            for r_m2c, t_m2c in zip(o.r_m2cs, o.t_m2cs):
                 cv2.aruco.drawAxis(img, cam.K, cam.D, r_m2c, t_m2c, self.marker_size)
         return img
         
@@ -81,32 +88,42 @@ class SMoCapNode:
         rospy.loginfo('using marker size {} m'.format(marker_size))
         self.low_freq = 2.
         self.cam_sys = smocap.rospy_utils.CamSysRetriever().fetch(cam_names)
+        self.profiler = smocap.real_time_utils.Profiler(self.cam_sys.nb_cams())
+
         self.img_pub = smocap.rospy_utils.ImgPublisher(self.cam_sys)
         self.pose_pub = smocap.rospy_utils.PosePublisher()
         self.fov_pub = smocap.rospy_utils.FOVPublisher(self.cam_sys)
-        self.cam_lst = smocap.rospy_utils.CamerasListener(cams=cam_names, cbk=self.on_image)
+        self.stat_pub = smocap.rospy_utils.StatusPublisher()
+
         self.mocap = ArucoMocap(self.cam_sys, marker_size)
+        self.frame_searchers = [smocap.real_time_utils.FrameSearcher(i, self.mocap, self.profiler) for i, c in enumerate(self.cam_sys.get_cameras())]
+        
+        self.cam_lst = smocap.rospy_utils.CamerasListener(cams=cam_names, cbk=self.on_image)
+        
         
     def periodic(self):
-        imgs = self.cam_lst.get_images_as_rgb()
-        for cam, img in zip(self.cam_sys.get_cameras(), imgs):
-            if  img is not None:
-                self.mocap.draw(img, cam)
-        self.img_pub.publish(imgs)
+        self.img_pub.publish(self.cam_lst.get_images_as_rgb(), self.profiler, self.mocap)
         self.fov_pub.publish()
+        self.stat_pub.publish(self.profiler)
         
     def run(self):
-        rate = rospy.Rate(1./self.low_freq)
+        rate = rospy.Rate(self.low_freq)
         try:
             while not rospy.is_shutdown():
                 self.periodic()
                 rate.sleep()
         except rospy.exceptions.ROSInterruptException:
             pass    
-    
-    def on_image(self, img, cam_idx):
-        self.mocap.process_image(img, cam_idx)
-        try:
+        for f in self.frame_searchers:
+            f.stop()
+            
+    def on_image(self, img, (cam_idx, stamp, seq)):
+        self.profiler.signal_start(cam_idx, stamp, seq)
+        #img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        self.frame_searchers[cam_idx].put_image(img, seq, stamp)
+        #self.mocap.process_image(img, cam_idx)
+        self.profiler.signal_done(cam_idx, rospy.Time.now())
+        try: # publish the first tracked marker as /smocap/est
             mid = self.mocap.markers.keys()[0]
             self.pose_pub.publish(self.mocap.markers[mid].T_m2w)
         except IndexError:

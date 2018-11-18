@@ -32,7 +32,11 @@ class Camera:
             self.fp_n = self.cam_to_world_T[:3,2]                      # image of [0 0 1]_world in cam frame
             self.fp_d = -np.dot(self.fp_n , self.cam_to_world_T[:3,3]) #
 
-        
+
+    def set_encoding(self, encoding):
+        self.img_encoding = encoding
+
+            
     def project(self, points_world):
         return cv2.projectPoints(points_world, self.world_to_cam_r, self.world_to_cam_t, self.K, self.D)[0]
 

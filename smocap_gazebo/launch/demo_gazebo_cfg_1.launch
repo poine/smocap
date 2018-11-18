@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- start gazebo and marker -->
+  <include file="$(find smocap_gazebo)/launch/gazebo.launch">
+    <arg name="gui" default="false" />
+  </include>
+
+  <!-- start cameras -->
+  <include file="$(find smocap_gazebo)/launch/single_cam.launch">
+    <arg name="camera_id" value="1"/>
+    <arg name="pos_x" value="-1."/>
+    <arg name="pos_y" value="0." />
+    <arg name="pos_z" value="3.5" />
+    <arg name="rot_P" value="1.5707963267948966" />
+  </include>
+  <include file="$(find smocap_gazebo)/launch/single_cam.launch">
+    <arg name="camera_id" value="2"/>
+    <arg name="pos_x" value="1."/>
+    <arg name="pos_y" value="0." />
+    <arg name="pos_z" value="3.5" />
+    <arg name="rot_P" value="1.5707963267948966" />
+  </include>
+
+  <!-- Launch a Hand Of God markers in Gazebo -->
+  <!-- Marker Configuration -->
+  <arg name="marker_urdf" default="hog_chessboard.urdf.xacro"/>
+  <arg name="marker_mesh" value="unused"/>
+  <!-- Marker m0 -->
+  <include file="$(find smocap_gazebo)/launch/hog_marker.launch">
+    <arg name="marker_name" default="m0"/>
+    <arg name="marker_root_link" default="root_link_m0"/>
+    <arg name="marker_urdf" default="$(arg marker_urdf)"/>
+    <arg name="marker_mesh" default="$(arg marker_mesh)"/>
+    <arg name="marker_texture" default="Aruco0"/>
+  </include>
+  <!-- remote control for m0 -->
+  <node name="smocap_marker_remote_control" pkg="smocap_gazebo" type="hog_remote.py">
+    <param name="initial_location" value="0, 1., 0.09"/>
+    <param name="~controlled_link" value="root_link_m0"/>
+  </node>
+  
+  <!-- Marker m1 -->
+  <include file="$(find smocap_gazebo)/launch/hog_marker.launch">
+    <arg name="marker_name" default="m1"/>
+    <arg name="marker_root_link" default="root_link_m1"/>
+    <arg name="marker_urdf" default="$(arg marker_urdf)"/>
+    <arg name="marker_mesh" default="$(arg marker_mesh)"/>
+    <arg name="marker_texture" default="Aruco1"/>
+  </include>
+  <!-- remote control for m1 -->
+  <node name="smocap_marker_remote_control_gerard" pkg="smocap_gazebo" type="hog_remote.py">
+    <param name="initial_location" value="0, -1., 0.09"/>
+    <param name="~controlled_link" value="root_link_m1"/>
+  </node>
+
+  
+</launch>

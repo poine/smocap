@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="marker_name" default="default_marker"/>
+  <arg name="marker_root_link" default="default_marker_root_link"/>
   <arg name="marker_urdf" default="hog_ir_marker.urdf.xacro"/> <!-- or hog_chessboard.urdf.xacro -->
   <arg name="marker_mesh" default="ir_marker_5.dae"/>
   <arg name="marker_texture" default="Aruco14"/>
@@ -8,8 +9,9 @@
   <!--<env name="GAZEBO_MODEL_PATH" value="$(find smocap_gazebo)/models"/>-->
   <env name="GAZEBO_RESOURCE_PATH" value="$(find smocap_gazebo)/media/materials"/>
   <!-- Spawn marker -->
-  <param name="marker_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/$(arg marker_urdf) mesh:=$(arg marker_mesh) texture:=$(arg marker_texture)" />
-  <node name="urdf_spawner" pkg="gazebo_ros" type="spawn_model"
-	args="-urdf -model marker -param marker_description" />
+  <param name="marker_$(arg marker_name)_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/$(arg marker_urdf)
+					    mesh:=$(arg marker_mesh) texture:=$(arg marker_texture) root_link:=$(arg marker_root_link)" />
+  <node name="urdf_spawner_$(arg marker_name)" pkg="gazebo_ros" type="spawn_model"
+	args="-urdf -model marker_$(arg marker_name) -param marker_$(arg marker_name)_description" />
   
 </launch>

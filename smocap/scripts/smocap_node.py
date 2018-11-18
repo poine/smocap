@@ -1,113 +1,12 @@
 #!/usr/bin/env python
 import roslib
 #roslib.load_manifest('my_package')
-import os, sys , time, numpy as np, rospy, cv2, sensor_msgs.msg, geometry_msgs.msg, cv_bridge
+import math, os, sys , time, numpy as np, rospy, cv2, sensor_msgs.msg, geometry_msgs.msg, cv_bridge
 import tf.transformations, tf2_ros
 import threading
 import pdb
 
-import smocap, smocap_node_publisher, utils, smocap.rospy_utils
-
-
-
-
-def round_pt(p): return (int(p[0]), int(p[1]))
-
-
-
-
-class LossesTrapper:
-    '''
-    Save images and poses upon marker loss
-    '''
-    def __init__(self, img_dir):
-        self.img_dir = img_dir
-        self.lost_log_lock = threading.Lock()
-        self.lost_log = []
-        
-    def record(self, img, pose):
-        img_path = self.img_dir+'/img_{:03d}.png'.format(len(self.lost_log))
-        print 'lost at {} ({})'.format(pose[:3,3], img_path)
-        with self.lost_log_lock:
-            self.lost_log.append(pose[:3,3])
-        cv2.imwrite(img_path, img)
-
-    def stop(self):
-        with open(os.path.join(self.img_dir, 'lost_log.npz'), 'wb') as f:
-            np.savez(f, self.lost_log)
-
-
-        
-
-class Timer:
-    '''
-    Records fps, skipped frames and processing duration for every video stream
-    '''
-    def __init__(self, nb_cam):
-        self.last_frame_time = [None]*nb_cam
-        self.processing_duration = [0.]*nb_cam
-        self.frame_duration = [0.]*nb_cam
-        self.fps = [0.]*nb_cam
-        self.fps_lp = 0.95
-        self.last_frame_seq = [0]*nb_cam
-        self.skipped = [0]*nb_cam
-        
-    def signal_start(self, cam_idx, stamp, seq):
-        if self.last_frame_time[cam_idx] is not None:
-            self.frame_duration[cam_idx] = stamp - self.last_frame_time[cam_idx]
-            self.fps[cam_idx] = self.fps_lp*self.fps[cam_idx] + (1-self.fps_lp)/self.frame_duration[cam_idx].to_sec()
-            self.skipped[cam_idx] += seq - self.last_frame_seq[cam_idx] - 1
-        self.last_frame_time[cam_idx] = stamp
-        self.last_frame_seq[cam_idx] = seq
-        
-    def signal_done(self, cam_idx, stamp):
-        self.processing_duration[cam_idx] = stamp - self.last_frame_time[cam_idx]
-
-
-
-
-class FrameSearcher(threading.Thread):
-    '''
-    Encapsulates the threads responsible for searching markers in full frames at a lower framerate
-    One for each camera
-    '''
-    def __init__(self, _cam_idx, _smocap):
-        super(FrameSearcher, self).__init__(name='FrameSearcher_{}'.format(_smocap.cameras[_cam_idx].name))
-        self.cam_idx = _cam_idx
-        self.smocap = _smocap
-        self.condition = threading.Condition()
-        self._quit = False
-        # the processed image
-        self.seq = None
-        self.img = None
-        self.stamp = None
-        
-    def run(self):
-        while not self._quit:
-            with self.condition:
-                self.condition.wait()
-                if self.seq is not None:
-                    #print 'working '+ self.name + " " + str(self.seq)
-                    self.smocap.detect_markers_in_full_frame(self.img, self.cam_idx, self.stamp)
-                    self.seq = None # indicates image has been processed
-                elif self._quit:
-                    return
-            
-    def put_image(self, img, seq, stamp):
-        if not self.condition.acquire(blocking=False):
-            return
-        else:
-            self.seq = seq
-            self.img = np.copy(img)
-            self.stamp = stamp
-            self.condition.notify()
-            self.condition.release()
-        
-    def stop(self):
-        with self.condition:
-            self._quit = True
-            self.condition.notify()
-
+import smocap, smocap_node_publisher, utils, smocap.rospy_utils, smocap.real_time_utils
 
 
 
@@ -121,28 +20,61 @@ class NodePublisher:
     def publish_pose(self, T_m2w):
         self.pose_pub.publish(T_m2w)
 
+    
+    def publish_periodic(self, _profiler, _mocap, _imgs):
+        self.fov_pub.publish()
+        self.stat_pub.publish_txt(self.write_status(_profiler, _mocap))
+        self.img_pub.publish( _imgs, _profiler, _mocap)
 
-    def write_status(self, _timer):
+
+class MonoNodePublisher(NodePublisher):
+    
+    def write_status(self, _profiler, _mocap):
         txt = '\nTime: {}\n'.format(rospy.Time.now().to_sec())
         txt += 'Timing:\n'
-        for i, (fps, skipped) in enumerate(zip(_timer.fps, _timer.skipped)):
+        for i, (fps, skipped, fs_dur) in enumerate(zip(_profiler.fps, _profiler.skipped, _profiler.ff_duration)):
             txt += (' camera {}: fps {:4.1f} skipped {:d}\n'.format(i, fps, skipped))
+            txt += ('   ff: {:.3f}s ({:.1f}fps)\n'.format(fs_dur, 1./fs_dur))
+            txt += ('   roi: {}s\n'.format(_profiler.processing_duration[i].to_sec()))
+        txt += 'Mono tracker:\n'
+        txt += ' marker 0:\n'
+        txt += '   localized: {}\n'.format(_mocap.marker.is_localized)
+        txt += '   full frame observations: {}\n'.format([o.roi is not None for o in _mocap.marker.ff_observations] )
+        t_w_to_m = ' '.join(['{:6.3f}'.format(p) for p in _mocap.marker.irm_to_world_T[:3,3]])
+        a_w_to_m = math.atan2(_mocap.marker.irm_to_world_T[1,0], _mocap.marker.irm_to_world_T[0,0])
+        txt += '   pose {} m {:5.2f} deg\n'.format(t_w_to_m, utils.deg_of_rad(a_w_to_m))
+        return txt
+        
+class MultiNodePublisher(NodePublisher):
+
+    def __init__(self, cam_sys):
+        NodePublisher.__init__(self, cam_sys)
+        self.poses_pub =  smocap.rospy_utils.PoseArrayPublisher()
+
+    def publish_poses(self, _mocap):
+        Ts_m2w = [m.irm_to_world_T for m in _mocap.markers]
+        self.poses_pub.publish(Ts_m2w)
+        
+    def write_status(self, _profiler, _mocap):
+        txt = '\nTime: {}\n'.format(rospy.Time.now().to_sec())
+        txt += 'Timing:\n'
+        for i, (fps, skipped, fs_dur) in enumerate(zip(_profiler.fps, _profiler.skipped, _profiler.ff_duration)):
+            txt += (' camera {}: fps {:4.1f} skipped {:d}\n'.format(i, fps, skipped))
+        for mid, m in enumerate(_mocap.markers):
+            txt += 'marker {}\n'.format(mid)
+            txt += '   localized: {}\n'.format(m.is_localized)
+            t_w_to_m = ' '.join(['{:6.3f}'.format(p) for p in m.irm_to_world_T[:3,3]])
+            a_w_to_m = math.atan2(m.irm_to_world_T[1,0], m.irm_to_world_T[0,0])
+            txt += '   pose: {} m {:5.2f} deg\n'.format(t_w_to_m, utils.deg_of_rad(a_w_to_m))
+            txt += '   ff_obs: {}\n'.format([m.has_ff_observation(i) for i in range(len(_mocap.cameras))])
         return txt
     
-    def publish_periodic(self, _timer):
-        self.fov_pub.publish()
-        self.stat_pub.publish(self.write_status(_timer))
-        self.img_pub.publish([])
-
-
-
 class SMoCapNode:
 
     def __init__(self):
         self.publish_image = rospy.get_param('~publish_image', True)
         self.publish_est =   rospy.get_param('~publish_est', True)
         camera_names =       rospy.get_param('~cameras', 'camera_1').split(',')
-        self.img_encoding =  rospy.get_param('~img_encoding', 'mono8')
         detector_cfg_path =    rospy.get_param('~detector_cfg_path', '/home/poine/work/smocap.git/smocap/params/f111_detector_default.yaml')
         self.trap_losses = rospy.get_param('~trap_losses', False)
         self.trap_losses_img_dir = rospy.get_param('~trap_losses_img_dir', '/home/poine/work/smocap.git/smocap/test/enac_demo_z/losses')
@@ -152,117 +84,79 @@ class SMoCapNode:
         
         rospy.loginfo('   using cameras: "{}"'.format(camera_names))
         rospy.loginfo('   using detector config: "{}"'.format(detector_cfg_path))
-        rospy.loginfo('   image encoding: "{}"'.format(self.img_encoding))
         rospy.loginfo('   trapping losses: "{}"'.format(self.trap_losses))
         rospy.loginfo('   run_mono_tracker: "{}"'.format(self.run_mono_tracker))
         rospy.loginfo('   run_multi_tracker: "{}"'.format(self.run_multi_tracker))
         
         # Retrieve camera configuration from ROS
         self.cam_sys = smocap.rospy_utils.CamSysRetriever().fetch(camera_names)
-        self.timer = Timer(self.cam_sys.nb_cams())
+        
+        self.profiler = smocap.real_time_utils.Profiler(self.cam_sys.nb_cams())
 
         if self.trap_losses:
-            self.losses_trapper = LossesTrapper(self.trap_losses_img_dir)
+            self.losses_trapper = smocap.real_time_utils.LossesTrapper(self.trap_losses_img_dir)
         
-        self.smocap = smocap.SMoCap(self.cam_sys.get_cameras(), undistort=True, detector_cfg_path=detector_cfg_path)
+        if self.run_mono_tracker:
+            self.smocap = smocap.SMocapMonoMarker(self.cam_sys.get_cameras(), detector_cfg_path=detector_cfg_path, height_above_floor=0.09)
+        else:
+            self.smocap = smocap.SMoCapMultiMarker(self.cam_sys.get_cameras(), detector_cfg_path=detector_cfg_path, height_above_floor=0.09)
 
-        self.smocap.marker.heigth_above_floor = 0.09
-        self.smocap.markers[0].heigth_above_floor = 0.09
-
-        self.publisher = NodePublisher(self.cam_sys)
+        self.publisher = MonoNodePublisher(self.cam_sys) if self.run_mono_tracker else MultiNodePublisher(self.cam_sys)
 
         # Start frame searchers
-        self.frame_searchers = [FrameSearcher(i, self.smocap) for i, c in enumerate(self.cam_sys.get_cameras())]
-        for f in self.frame_searchers: f.start()
+        self.frame_searchers = [smocap.real_time_utils.FrameSearcher(i, self.smocap, self.profiler) for i, c in enumerate(self.cam_sys.get_cameras())]
         
         # Subscribe to video streams
-        self.bridges = [cv_bridge.CvBridge() for c in self.cam_sys.get_cameras()]
-        for cam_idx, cam in enumerate(self.cam_sys.get_cameras()):
-            cam_img_topic = '/{}/image_raw'.format(cam.name)
-            rospy.Subscriber(cam_img_topic, sensor_msgs.msg.Image, self.img_callback, cam_idx, queue_size=1)
-            rospy.loginfo(' subscribed to ({})'.format(cam_img_topic))
+        self.cam_listener = smocap.rospy_utils.CamerasListener(cams=camera_names, cbk=self.img_callback_mono if self.run_mono_tracker else self.img_callback_multi)
 
-        
-    def draw_debug_image(self, img, draw_true_markers=False):
-        img_with_keypoints = self.smocap.draw_debug_on_image(img, 0)
-
-        # draw projected markers
-        if draw_true_markers:
-            for i in range(4):
-                loc = round_pt(self.smocap.projected_markers_img[i])
-                cv2.circle(img_with_keypoints, loc, 5, (0,255,0), 1)
-                cv2.putText(img_with_keypoints, self.smocap.markers_names[i], loc, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1) 
-
-
-        for i in range(len(self.smocap.cameras)):
-            txt = 'camera {}: {:5.1f} fps, {} detected, (d:{:.0f} ms t:{:.0f} ms)'.format(i, self.timer.fps[i], len(self.smocap.keypoints),
-                                                                               self.smocap.marker.detection_duration*1e3,
-                                                                               self.smocap.marker.tracking_duration*1e3)
-            h, w, d = img_with_keypoints.shape    
-            loc = (10, 40+(50*i))
-            cv2.putText(img_with_keypoints, txt, loc, cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 2) 
-            
-        return img_with_keypoints
-
-
+ 
         
         
-    def img_callback(self, msg, camera_idx):
+    def img_callback_mono(self, cv_image, (camera_idx, stamp, seq)):
         ''' 
-        Called in each video stream thread.
+        Called in main thread.
         '''
-
-        # No need for exclusion, each video stream has its own bridge and full frame detector
-        try:
-            cv_image = self.bridges[camera_idx].imgmsg_to_cv2(msg, "passthrough")
-        except cv_bridge.CvBridgeError as e:
-            print(e)
         
-        if self.run_multi_tracker or self.smocap.has_unlocalized_marker(): 
-            self.frame_searchers[camera_idx].put_image(cv_image, msg.header.seq, msg.header.stamp)
-
-        if self.run_multi_tracker:
-            for marker_id, marker in enumerate(self.smocap.markers):
-                try:
-                    self.smocap.detect_marker_in_roi2(cv_image, camera_idx, msg.header.stamp, marker_id)
-                    self.smocap.track_marker2(marker, camera_idx)
-                except smocap.MarkerNotInFrustumException:
-                    marker.observations[camera_idx].tracked = False
-                    print 'not in frustum'
-                except smocap.MarkerNotDetectedException:
-                    marker.observations[camera_idx].tracked = False
-                    print 'not detected'
-                except smocap.MarkerNotLocalizedException:
-                    marker.observations[camera_idx].tracked = False
-                    #print 'not localized'
-                else:
-                    marker.observations[camera_idx].tracked = True 
-                finally:
-                    if not any([o.tracked for o in marker.observations]):
-                        marker.set_world_pose(None)
-
-        if self.run_mono_tracker:
-            try:
-                self.timer.signal_start(camera_idx, msg.header.stamp, msg.header.seq)
-                self.smocap.detect_marker_in_roi(cv_image, camera_idx)
-                self.smocap.identify_marker_in_roi(camera_idx)
-                self.smocap.track_marker(camera_idx)
-            except smocap.MarkerNotDetectedException:
-                if self.trap_losses and self.smocap.marker.observations[camera_idx].tracked: # if we just lost the marker
-                    self.losses_trapper.record(cv_image, self.smocap.marker.irm_to_world_T)
-                self.smocap.marker.observations[camera_idx].tracked = False
-            except smocap.MarkerNotLocalizedException, smocap.MarkerNotInFrustumException:
-                self.smocap.marker.observations[camera_idx].tracked = False
-            else:
-                self.smocap.marker.observations[camera_idx].tracked = True
-                if self.publish_est:
-                    self.publisher.publish_pose(self.smocap.marker.irm_to_world_T)
-            finally:
-                if not any([o.tracked for o in self.smocap.marker.observations]):
-                    self.smocap.marker.set_world_pose(None)
-                self.timer.signal_done(camera_idx, rospy.Time.now())
+        #if self.smocap.has_unlocalized_marker(): 
+        self.frame_searchers[camera_idx].put_image(cv_image, seq, stamp)
+        try:
+            self.profiler.signal_start(camera_idx, stamp, seq)
+            self.smocap.detect_marker_in_roi(cv_image, camera_idx)
+            self.smocap.identify_marker_in_roi(camera_idx)
+            self.smocap.track_marker(camera_idx)
+        except smocap.MarkerLostException:
+            if self.trap_losses: # if we just lost the marker
+                self.losses_trapper.record(camera_idx, cv_image, self.smocap.marker.irm_to_world_T)
+        except (smocap.MarkerNotDetectedException, smocap.MarkerNotLocalizedException, smocap.MarkerNotInFrustumException):
+            pass
+        else:
+            if self.publish_est:
+                self.publisher.publish_pose(self.smocap.marker.irm_to_world_T)
+        finally:
+            self.smocap.localize_marker_in_world(camera_idx)
+            self.profiler.signal_done(camera_idx, rospy.Time.now())
             
-                
+
+    def img_callback_multi(self, cv_image, (camera_idx, stamp, seq)):
+        # 
+        self.profiler.signal_start(camera_idx, stamp, seq)
+        # post full image for slow full frame searchers
+        self.frame_searchers[camera_idx].put_image(cv_image, seq, stamp)
+        
+        for m in self.smocap.markers:
+            try:
+                self.smocap.detect_marker_in_roi(cv_image, camera_idx, stamp, m)
+            except (smocap.MarkerNotLocalizedException, smocap.MarkerNotDetectedException, smocap.MarkerNotInFrustumException):
+                pass
+            else:
+                self.smocap.track_marker(m, camera_idx)
+                self.publisher.publish_poses(self.smocap)
+            finally:
+                self.smocap.localize_marker_in_world(m, camera_idx)
+        self.profiler.signal_done(camera_idx, rospy.Time.now())
+
+
+
     def run(self):
         rate = rospy.Rate(2.)
         try:
@@ -277,7 +171,7 @@ class SMoCapNode:
             f.stop()
 
     def periodic(self):
-        self.publisher.publish_periodic(self.timer)#, self.smocap)
+        self.publisher.publish_periodic(self.profiler, self.smocap, self.cam_listener.get_images_as_rgb())
 
                 
 def main(args):

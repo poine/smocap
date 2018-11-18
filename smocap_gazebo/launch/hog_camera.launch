@@ -2,7 +2,8 @@
 <launch>
 
   <arg name="camera_id" default="1"/>
-
+  <arg name="camera_w" default="720"/>
+  <arg name="camera_h" default="480"/>
   <!-- loads URDF description -->
   <param name="smocap_camera_$(arg camera_id)_description" command="$(find xacro)/xacro --inorder $(find smocap)/urdf/hog_camera.urdf.xacro camera_id:=$(arg camera_id)" />
 

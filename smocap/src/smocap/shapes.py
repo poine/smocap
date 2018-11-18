@@ -52,7 +52,7 @@ class Shape:
 
 
     def sort_points(self, debug=False, sort_cw=False):
-        # invert sort if for the fucking y down on images :(
+        # invert sort is for the fucking y down on images :(
 
         self.zs_r_normalized = np.array([z*complex(math.cos(-self.theta), math.sin(-self.theta)) for z in self.zsk[0]])
         # Sort by angle only doen't work. I do not always get the correct starting point :(

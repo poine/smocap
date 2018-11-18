@@ -58,11 +58,11 @@ roslaunch smocap_gazebo gazebo_hog_marker.launch
 ``` 
  2. Load a camera in gazebo:
 ```
-roslaunch smocap_gazebo single_cam.launch camera_id:=1 pos_x:=0. pos_y:=0. pos_z:=3. rot_P:=1.5707963267948966 fps=30.
+roslaunch smocap_gazebo single_cam.launch camera_id:=1 pos_x:=0. pos_y:=0. pos_z:=3. rot_P:=1.5707963267948966 fps:=30.
  ``` 
  3. Start the mocap node:
 ``` 
-rosrun smocap smocap_node.py _cameras:=camera_1 _detector_cfg_path:=`rospack find smocap`/params/gazebo_dettor_cfg.yaml _img_encoding:=rgb8
+rosrun smocap smocap_node.py _cameras:=camera_1 _detector_cfg_path:=`rospack find smocap`/params/gazebo_detector_cfg.yaml _img_encoding:=rgb8
 ```
  
  4. View what's going on 

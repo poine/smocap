@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import logging, sys, os, math, numpy as np, cv2, gi
+import argparse, logging, sys, os, math, numpy as np, cv2, gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GdkPixbuf, GLib, GObject
 import matplotlib
@@ -293,11 +293,19 @@ class App:
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     np.set_printoptions(precision=3, linewidth=300)
-    args = {
-        'detector_cfg':'/home/poine/work/smocap.git/params/enac_demo_z/expe_z_detector_default.yaml',
-        'image_path':'/home/poine/work/smocap.git/test/expe_z/image_01.png',
-        'image_encoding':'mono8'
-    }
+    parser = argparse.ArgumentParser(description='Tune Blob Detector.')
+    parser.add_argument('-i', '--img', default='/home/poine/work/smocap.git/smocap/test/gazebo_samples/image_09.png')
+    parser.add_argument('-c', '--cfg', default='/home/poine/work/smocap.git/smocap/params/gazebo_detector_cfg.yaml')
+    parser.add_argument('-e', '--enc', default='bgr8')
+    args = parser.parse_args()
+    #pdb.set_trace()
+    
+    if 0:
+        args = {
+            'detector_cfg':'/home/poine/work/smocap.git/params/enac_demo_z/expe_z_detector_default.yaml',
+            'image_path':'/home/poine/work/smocap.git/test/expe_z/image_01.png',
+            'image_encoding':'mono8'
+        }
     if 0:
         args = {
         'detector_cfg':'/home/poine/work/smocap.git/params/f111_detector_default.yaml',
@@ -306,11 +314,12 @@ if __name__ == '__main__':
         }
     if 0:
         args = {
-            'detector_cfg':'/home/poine/work/smocap.git/params/gazebo_detector_cfg.yaml',
-            'image_path':'/home/poine/work/smocap.git/test/image_11.png',
+            'detector_cfg':'/home/poine/work/smocap.git/smocap/params/gazebo_detector_cfg.yaml',
+            'image_path':'/home/poine/work/smocap.git/smocap/test/gazebo_samples/image_09.png',
             'image_encoding':'bgr8'
         }
-    App(**args).run()
+    #App(**args).run()
+    App(**{'detector_cfg':args.cfg, 'image_path':args.img, 'image_encoding':args.enc}).run()
 
 
 

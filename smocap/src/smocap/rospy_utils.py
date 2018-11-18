@@ -21,7 +21,7 @@ class CamerasListener:
         if self.img_cbk is not None:
             try:
                 self.images[camera_idx] = self.bridges[camera_idx].imgmsg_to_cv2(msg, "passthrough")
-                self.img_cbk(self.images[camera_idx], camera_idx)
+                self.img_cbk(self.images[camera_idx], (camera_idx, msg.header.stamp, msg.header.seq))
             except cv_bridge.CvBridgeError as e:
                 print(e)
 
@@ -43,7 +43,7 @@ class CamerasListener:
                     rgb_image[:,:,i] = img
                 rgb_images.append(rgb_image)
             else:                      # rgb image, just copy it
-                rgb_images.append(rgb_image)
+                rgb_images.append(img)
         return rgb_images
 
 
@@ -60,22 +60,40 @@ def make_2d_line(p0, p1, spacing=200, endpoint=True):
 def get_points_on_plane(rays, plane_n, plane_d):
     return np.array([-plane_d/np.dot(ray, plane_n)*ray for ray in rays])
 
+
+
 class ImgPublisher:
     def __init__(self, cam_sys):
         img_topic = "/smocap/image_debug"
         rospy.loginfo(' publishing on ({})'.format(img_topic))
         self.image_pub = rospy.Publisher(img_topic, sensor_msgs.msg.Image, queue_size=1)
         self.bridge = cv_bridge.CvBridge()
-        cams = cam_sys.get_cameras()
-        w, h = np.sum([cam.w for cam in cams]), np.max([cam.h for cam in cams])
+        self.cam_sys = cam_sys
+        w, h = np.sum([cam.w for cam in  cam_sys.get_cameras()]), np.max([cam.h for cam in cam_sys.get_cameras()])
         self.img = 255*np.ones((h, w, 3), dtype='uint8')
 
-    def publish(self, imgs):
+    def publish(self, imgs, profiler, mocap):
+        for cam, img in zip(self.cam_sys.get_cameras(), imgs):
+            if  img is not None:
+                mocap.draw(img, cam)
         x0 = 0
-        for img in imgs:
+        for i, (img, cam) in enumerate(zip(imgs, self.cam_sys.get_cameras())):
             if img is not None:
-                w = img.shape[1]; x1 = x0+w
-                self.img[:,x0:x1] = img
+                h, w = img.shape[0], img.shape[1]; x1 = x0+w
+                cam_area = self.img[:h,x0:x1]
+                self.img[:h,x0:x1] = img
+                cv2.rectangle(cam_area, (0, 0), (x1-1, h-1), (0,255,0), 2)
+                
+                txt, loc, fs, fcol = '{}'.format(cam.name), (10, 40), 1.1, (0, 255, 0)
+                cv2.putText(self.img[:,x0:x1], txt, loc, cv2.FONT_HERSHEY_SIMPLEX, fs, fcol, 2)
+                txt, loc, fs = 'fps: {:.1f}'.format(profiler.fps[i]), (10, 90), 0.9
+                cv2.putText(self.img[:,x0:x1], txt, loc, cv2.FONT_HERSHEY_SIMPLEX, fs, fcol, 2)
+                txt, loc = 'skipped: {}'.format(profiler.skipped[i]), (10, 130)
+                cv2.putText(self.img[:,x0:x1], txt, loc, cv2.FONT_HERSHEY_SIMPLEX, fs, fcol, 2)
+                txt, loc = 'seq: {}'.format(profiler.last_frame_seq[i]), (10, 170)
+                cv2.putText(self.img[:,x0:x1], txt, loc, cv2.FONT_HERSHEY_SIMPLEX, fs, fcol, 2)
+                txt, loc = 'ff dur: {:.3f} s'.format(profiler.ff_duration[i]), (10, 210)
+                cv2.putText(self.img[:,x0:x1], txt, loc, cv2.FONT_HERSHEY_SIMPLEX, fs, fcol, 2)
                 x0 = x1
         self.image_pub.publish(self.bridge.cv2_to_imgmsg(self.img, "rgb8"))
 
@@ -128,6 +146,7 @@ class FOVPublisher:
         
 
 class PosePublisher:
+
     def __init__(self):
          self.pose_pub = rospy.Publisher('/smocap/est_marker', geometry_msgs.msg.PoseWithCovarianceStamped, queue_size=1)
 
@@ -143,14 +162,42 @@ class PosePublisher:
         msg.pose.covariance[35] = std_rz**2
         self.pose_pub.publish(msg)
 
+
+class PoseArrayPublisher:
+    def __init__(self):
+        
+        self.poses_pub = rospy.Publisher('/smocap/est_markers', geometry_msgs.msg.PoseArray, queue_size=1)
+
+    
+    def publish(self, Ts_m2w):
+        msg = geometry_msgs.msg.PoseArray()
+        msg.header.frame_id = "world"
+        msg.header.stamp = rospy.Time.now()
+        for T_m2w in Ts_m2w:
+            pose = geometry_msgs.msg.Pose()
+            smocap.utils._position_and_orientation_from_T(pose.position, pose.orientation, T_m2w)
+            msg.poses.append(pose)
+            
+        self.poses_pub.publish(msg)
+  
+        
+        
 class StatusPublisher:
     def __init__(self):
         self.status_pub = rospy.Publisher('/smocap/status', std_msgs.msg.String, queue_size=1)
 
-    def publish(self, txt_status):
-        self.status_pub.publish(txt_status)
+    def publish(self, _profiler):
+        txt = '\nTime: {}\n'.format(rospy.Time.now().to_sec())
+        txt += 'Timing:\n'
+        for i, (fps, skipped, fs_dur) in enumerate(zip(_profiler.fps, _profiler.skipped, _profiler.ff_duration)):
+            txt += (' camera {}: fps {:4.1f} skipped {:d}\n'.format(i, fps, skipped))
+            #pdb.set_trace()
+            txt += ('   ff: {:.3f}s ({:.1f}fps)\n'.format(fs_dur, 1./fs_dur))
+        self.publish_txt(txt)
 
-        
+    def publish_txt(self, txt):
+        self.status_pub.publish(txt)
+          
 class CamSysRetriever:
     def fetch(self, cam_names):
         cam_sys = smocap.camera_system.CameraSystem(cam_names=cam_names)
@@ -158,11 +205,13 @@ class CamSysRetriever:
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
         for i, cam_name in enumerate(cam_names):
             cam = cam_sys.cameras[i]
+            # Retrieve camera instrinsic 
             rospy.loginfo(' retrieving camera: "{}" configuration'.format(cam_name))
             cam_info_topic = '/{}/camera_info'.format(cam_name)
             cam_info_msg = rospy.wait_for_message(cam_info_topic, sensor_msgs.msg.CameraInfo)
             cam.set_calibration(np.array(cam_info_msg.K).reshape(3,3), np.array(cam_info_msg.D), cam_info_msg.width, cam_info_msg.height)
             rospy.loginfo('  retrieved intrinsics ({})'.format(cam_info_topic))
+            # Retrieve camera extrinsic
             while not cam.is_localized():
                 cam_frame = '{}_optical_frame'.format(cam.name)
                 try:
@@ -172,4 +221,10 @@ class CamSysRetriever:
                 except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                     rospy.loginfo_throttle(1., " waiting to get camera location")
             rospy.loginfo('  retrieved extrinsics ({})'.format(cam_frame))
+            # Retrieve camera encoding
+            rospy.loginfo(' retrieving camera: "{}" encoding'.format(cam_name))
+            cam_img_topic = '/{}/image_raw'.format(cam_name)
+            cam_img_msg = rospy.wait_for_message(cam_img_topic, sensor_msgs.msg.Image)
+            cam.set_encoding(cam_img_msg.encoding)
+            rospy.loginfo('  retrieved encoding ({})'.format(cam_img_msg.encoding))
         return cam_sys

@@ -51,3 +51,7 @@ def t_q_of_transf_msg(transf_msg):
 def _position_and_orientation_from_T(p, q, T):
     p.x, p.y, p.z = T[:3, 3]
     q.x, q.y, q.z, q.w = tf.transformations.quaternion_from_matrix(T)
+
+
+
+
