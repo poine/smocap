@@ -37,6 +37,10 @@ class Node:
     def set_pose(self, pose):
         self.set_position(pose[0])
         self.set_orientation(pose[1])
+
+    def set_pose_T_m2w(self, T_m2w):
+        t, rpy = smocap.utils.t_rpy_of_T(T_m2w)
+        self.set_pose((t, rpy))
         
     def marker_has_arrived(self, tol_t=1e-2, tol_r=5e-2):
         if self.pose_err[0] is None: return False
@@ -66,11 +70,12 @@ class Node:
 
     def get_marker_pose(self):
         try:
-            w2a = self.tfBuffer.lookup_transform('world', self.ctl_link_actual, rospy.Time())
-            w2a_t, w2a_q = smocap.utils.t_q_of_transf_msg(w2a.transform) 
+            a2w = self.tfBuffer.lookup_transform('world', self.ctl_link_actual, rospy.Time())
+            a2w_t, a2w_q = smocap.utils.t_q_of_transf_msg(a2w.transform) 
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-            w2a_t, w2a_q = None, None
-        return w2a_t, w2a_q
+            print('could not get marker pose')
+            a2w_t, a2w_q = None, None
+        return a2w_t, a2w_q
             
 class GUI:
     def __init__(self, controlled_link):

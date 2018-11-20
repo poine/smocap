@@ -131,7 +131,10 @@ class SMoCapNode:
             pass
         else:
             if self.publish_est:
-                self.publisher.publish_pose(self.smocap.marker.irm_to_world_T)
+                if not self.smocap.marker.is_localized :
+                    print('error publishing non localized pose')
+                else:
+                    self.publisher.publish_pose(self.smocap.marker.irm_to_world_T)
         finally:
             self.smocap.localize_marker_in_world(camera_idx)
             self.profiler.signal_done(camera_idx, rospy.Time.now())

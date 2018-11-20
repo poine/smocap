@@ -10,7 +10,14 @@ layout: default
 roslaunch smocap_gazebo gazebo_hog_marker.launch
 ``` 
 
+###
+closing the loop
 
+
+roslaunch smocap_gazebo demo_gazebo_cfg_2.launch
+rosrun smocap smocap_node.py _cameras:=camera_1 detector_cfg_path:=`rospack find smocap`/params/gazebo_detector_cfg.yaml _run_mono_tracker:=true _trap_losses:=false
+~/work/oscar.git/oscar_simulator/scripts $ ./hog_simulator.py
+~/work/overlay_ws/src/oscar/oscar_control/scripts $ ./pp_guidance_node.py
 
 
 ## Running real setup

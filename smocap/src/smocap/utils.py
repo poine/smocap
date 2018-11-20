@@ -15,6 +15,11 @@ def T_of_t_rpy(t, rpy):
     T[:3,3] = t
     return T
 
+def t_rpy_of_T(T):
+    t = T[:3,3]
+    rpy = tf.transformations.euler_from_matrix(T, 'sxyz')
+    return t, rpy
+
 def T_of_t_q(t, q):
     T = tf.transformations.quaternion_matrix(q)
     T[:3,3] = t
