@@ -75,18 +75,20 @@ class SMoCapNode:
         self.publish_image = rospy.get_param('~publish_image', True)
         self.publish_est =   rospy.get_param('~publish_est', True)
         camera_names =       rospy.get_param('~cameras', 'camera_1').split(',')
-        detector_cfg_path =    rospy.get_param('~detector_cfg_path', '/home/poine/work/smocap.git/smocap/params/f111_detector_default.yaml')
-        self.trap_losses = rospy.get_param('~trap_losses', False)
+        detector_cfg_path =  rospy.get_param('~detector_cfg_path', '/home/poine/work/smocap.git/smocap/params/f111_detector_default.yaml')
+        self.trap_losses =   rospy.get_param('~trap_losses', False)
         self.trap_losses_img_dir = rospy.get_param('~trap_losses_img_dir', '/home/poine/work/smocap.git/smocap/test/enac_demo_z/losses')
         
         self.run_multi_tracker = rospy.get_param('~run_multi_tracker', False)
         self.run_mono_tracker = rospy.get_param('~run_mono_tracker', True)
+        self.height_above_floor = rospy.get_param('~height_above_floor', 0.05)
         
         rospy.loginfo('   using cameras: "{}"'.format(camera_names))
         rospy.loginfo('   using detector config: "{}"'.format(detector_cfg_path))
         rospy.loginfo('   trapping losses: "{}"'.format(self.trap_losses))
         rospy.loginfo('   run_mono_tracker: "{}"'.format(self.run_mono_tracker))
         rospy.loginfo('   run_multi_tracker: "{}"'.format(self.run_multi_tracker))
+        rospy.loginfo('   height_above_floor: "{}"'.format(self.height_above_floor))
         
         # Retrieve camera configuration from ROS
         self.cam_sys = smocap.rospy_utils.CamSysRetriever().fetch(camera_names)
@@ -97,9 +99,9 @@ class SMoCapNode:
             self.losses_trapper = smocap.real_time_utils.LossesTrapper(self.trap_losses_img_dir)
         
         if self.run_mono_tracker:
-            self.smocap = smocap.SMocapMonoMarker(self.cam_sys.get_cameras(), detector_cfg_path=detector_cfg_path, height_above_floor=0.09)
+            self.smocap = smocap.SMocapMonoMarker(self.cam_sys.get_cameras(), detector_cfg_path=detector_cfg_path, height_above_floor=self.height_above_floor)
         else:
-            self.smocap = smocap.SMoCapMultiMarker(self.cam_sys.get_cameras(), detector_cfg_path=detector_cfg_path, height_above_floor=0.09)
+            self.smocap = smocap.SMoCapMultiMarker(self.cam_sys.get_cameras(), detector_cfg_path=detector_cfg_path, height_above_floor=self.height_above_floor)
 
         self.publisher = MonoNodePublisher(self.cam_sys) if self.run_mono_tracker else MultiNodePublisher(self.cam_sys)
 

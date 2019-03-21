@@ -81,10 +81,8 @@ class Marker:
 
     def set_height_ablove_floor(self, _h):
         self.heigth_above_floor = _h
-        if 1:
-            self.irm_to_body_T[2,3] = _h # FIXME!!!! WTF, this is backwards too!!!
-        else:
-            self.irm_to_body_T[2,3] = -_h # FIXME!!!! WTF, this is backwards too!!!
+        self.irm_to_body_T[2,3] = _h # not used anymore ??
+
         
     def set_roi(self, cam_idx, roi):
         self.observations[cam_idx].set_roi(roi)
@@ -231,11 +229,15 @@ class SMocapMonoMarker:
             _angle, _dir, _point = tf.transformations.rotation_from_matrix(irm_to_world_T)
             return (irm_to_world_T[0,3], irm_to_world_T[1,3], _angle)
 
-        p0 =  params_of_irm_to_world_T(self.marker.irm_to_world_T if self.marker.is_localized else np.eye(4)) 
+        p0 =  params_of_irm_to_world_T(self.marker.irm_to_world_T if self.marker.is_localized else np.eye(4))
         self.optimize_lock.acquire()
         #res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='trf')
         res = scipy.optimize.least_squares(residual, p0, verbose=verbose, x_scale='jac', ftol=1e-4, method='lm')
         self.optimize_lock.release()
+        if 0:
+            print('success  {}'.format(res.success))
+            print('solution {}'.format(res.x))
+            print('residual {}'.format(res.cost))
         if res.success:
             observation.rep_err = res.cost
             observation.irm_to_cam_T = irm_to_cam_T_of_params(res.x)
