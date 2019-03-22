@@ -6,7 +6,7 @@ image_left: 0
 pixel_clock: 237
 frame_rate: 29.999351
 auto_gain: false
-master_gain: 80
+master_gain: 85
 gain_boost: false
 auto_exposure: false
 exposure: 8.001838

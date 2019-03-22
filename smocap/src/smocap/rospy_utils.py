@@ -38,7 +38,7 @@ class CamerasListener:
             if img is None:            # no image, make a black one
                 rgb_image = np.zeros((480, 640, 3)) 
             elif len(img.shape) ==  2: # mono image
-                rgb_image = np.zeros((img.shape[0],img.shape[1],3))
+                rgb_image = np.zeros((img.shape[0],img.shape[1],3), dtype=np.uint8)
                 for i in range(3):
                     rgb_image[:,:,i] = img
                 rgb_images.append(rgb_image)
