@@ -2,7 +2,6 @@
 <launch>
 
   <!-- single camera configuration for Z demo room -->
-
   
 
   <arg name="height_above_floor" default="0.05" />
@@ -12,6 +11,9 @@
   <arg name="camera1_name" value="ueye_enac_z_1" />
   <arg name="camera1_id"   value="140" /> <!-- closest camera -->
   <arg name="camera2_id"   value="141" /> <!-- far end camera -->
+
+  <arg name="camera1_w2co_t"   value="2.07327578  2.08689012  3.43835552" />
+  <arg name="camera1_w2co_q"   value="0.99948562  0.01061839 -0.01934665  0.02326933" />
   
   <!-- start cameras -->
   <!-- -->
@@ -45,11 +47,10 @@
   <!-- spawn static transform publishers
        - world to camera_link
        - camera_link to camera_optical_frame
-       - world to map
   -->
 
    <node  name="cam1_optical_frame_to_world_frame_publisher" pkg="tf" type="static_transform_publisher"
-          args="2.07327578  2.08689012  3.43835552  0.99948562  0.01061839 -0.01934665  0.02326933 world $(arg camera1_name)_optical_frame 100"/>
+          args="$(arg camera1_w2co_t) $(arg camera1_w2co_q) world $(arg camera1_name)_optical_frame 100"/>
 
    <node  name="cam1_optical_frame_to_cam_link_publisher" pkg="tf" type="static_transform_publisher"
 	  args="0 0 0 0.5 -0.5 0.5 0.5 $(arg camera1_name)_optical_frame $(arg camera1_name)_link 50"/>

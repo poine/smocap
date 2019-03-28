@@ -2,53 +2,55 @@ import rospy, math, numpy as np, tf.transformations, yaml, cv2
 import matplotlib, matplotlib.pyplot as plt, mpl_toolkits.mplot3d
 import pdb
 
+import smocap.utils
 
 def deg_of_rad(_r): return _r/math.pi*180.
 
+
 # Load camera model
 # I should use something from camera_calibration_parsers
-def load_camera_model(filename, verbose=False):
-    with open(filename) as f:
-        _dict = yaml.load(f)
-        camera_matrix = np.array(_dict.get('camera_matrix')['data']).reshape(3, 3)
-        dist_coeffs = np.array(_dict['distortion_coefficients']['data'])
-        w, h = _dict['image_width'], _dict['image_height']
-        if verbose:
-            print('loading camera calibration from {}'.format(filename))
-            print(' camera_matrix\n{}'.format(camera_matrix))
-            print(' distortion\n{}'.format(dist_coeffs))
-    return camera_matrix, dist_coeffs, w, h
+# def load_camera_model(filename, verbose=False):
+#     with open(filename) as f:
+#         _dict = yaml.load(f)
+#         camera_matrix = np.array(_dict.get('camera_matrix')['data']).reshape(3, 3)
+#         dist_coeffs = np.array(_dict['distortion_coefficients']['data'])
+#         w, h = _dict['image_width'], _dict['image_height']
+#         if verbose:
+#             print('loading camera calibration from {}'.format(filename))
+#             print(' camera_matrix\n{}'.format(camera_matrix))
+#             print(' distortion\n{}'.format(dist_coeffs))
+#     return camera_matrix, dist_coeffs, w, h
 
 # stolen from /opt/ros/kinetic/lib/python2.7/dist-packages/camera_calibration/calibrator.py
 # what a pos!
-def write_camera_model(filename, cam_info_msg, cname='unknown'):
-    #print cam_info_msg
-    txt = (""
-           + "image_width: " + str(cam_info_msg.width) + "\n"
-           + "image_height: " + str(cam_info_msg.height) + "\n"
-           + "camera_name: " + cname + "\n"
-           + "camera_matrix:\n"
-           + "  rows: 3\n"
-           + "  cols: 3\n"
-           + "  data: [" + ", ".join(["{:.12f}".format(i) for i in  np.array(cam_info_msg.K).reshape(1,9)[0]]) + "]\n"
-           + "distortion_model: " + ("rational_polynomial" if len(cam_info_msg.D) > 5 else "plumb_bob") + "\n"
-           + "distortion_coefficients:\n"
-           + "  rows: 1\n"
-           + "  cols: 5\n"
-           + "  data: [" + ", ".join(["%8f" % cam_info_msg.D[i] for i in range(len(cam_info_msg.D))]) + "]\n"
-           + "rectification_matrix:\n"
-           + "  rows: 3\n"
-           + "  cols: 3\n"
-           + "  data: [" + ", ".join(["%8f" % i for i in np.array(cam_info_msg.R).reshape(1,9)[0]]) + "]\n"
-           + "projection_matrix:\n"
-           + "  rows: 3\n"
-           + "  cols: 4\n"
-           + "  data: [" + ", ".join(["%8f" % i for i in np.array(cam_info_msg.P).reshape(1,12)[0]]) + "]\n"
-           + "\n")
-    with open(filename, 'w') as f:
-        #f.write("%YAML:1.0\n")
-        #yaml.dump(calib, f)
-        f.write(txt)
+# def write_camera_model(filename, cam_info_msg, cname='unknown'):
+#     #print cam_info_msg
+#     txt = (""
+#            + "image_width: " + str(cam_info_msg.width) + "\n"
+#            + "image_height: " + str(cam_info_msg.height) + "\n"
+#            + "camera_name: " + cname + "\n"
+#            + "camera_matrix:\n"
+#            + "  rows: 3\n"
+#            + "  cols: 3\n"
+#            + "  data: [" + ", ".join(["{:.12f}".format(i) for i in  np.array(cam_info_msg.K).reshape(1,9)[0]]) + "]\n"
+#            + "distortion_model: " + ("rational_polynomial" if len(cam_info_msg.D) > 5 else "plumb_bob") + "\n"
+#            + "distortion_coefficients:\n"
+#            + "  rows: 1\n"
+#            + "  cols: 5\n"
+#            + "  data: [" + ", ".join(["%8f" % cam_info_msg.D[i] for i in range(len(cam_info_msg.D))]) + "]\n"
+#            + "rectification_matrix:\n"
+#            + "  rows: 3\n"
+#            + "  cols: 3\n"
+#            + "  data: [" + ", ".join(["%8f" % i for i in np.array(cam_info_msg.R).reshape(1,9)[0]]) + "]\n"
+#            + "projection_matrix:\n"
+#            + "  rows: 3\n"
+#            + "  cols: 4\n"
+#            + "  data: [" + ", ".join(["%8f" % i for i in np.array(cam_info_msg.P).reshape(1,12)[0]]) + "]\n"
+#            + "\n")
+#     with open(filename, 'w') as f:
+#         #f.write("%YAML:1.0\n")
+#         #yaml.dump(calib, f)
+#         f.write(txt)
 
 
 
@@ -108,7 +110,7 @@ class TfListener:
 # 3D scene
 def draw_thriedra(ax, T_thriedra_to_world__thriedra, alpha=1., colors=['r', 'g', 'b'], scale=1., ls='-', id=None):
     ''' Draw thriedra in w frame '''
-    t, R = tR_of_T(T_thriedra_to_world__thriedra)
+    t, R = smocap.utils.tR_of_T(T_thriedra_to_world__thriedra)
     for i in range(3):
         p1 = t + scale*R[:,i] # aka p1 = t + np.dot(R, v) with v axis vector ([1 0 0], [0 1 0], [0 0 1])
         ax.plot([t[0], p1[0]], [t[1], p1[1]], [t[2], p1[2]], ls, color=colors[i], alpha=alpha)

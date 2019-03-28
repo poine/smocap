@@ -2,6 +2,7 @@
 import logging, sys, os, rospy, sensor_msgs.msg, math, numpy as np, threading, time, cv_bridge, cv2, tf2_ros, yaml
 
 import hog_remote, utils, smocap
+import smocap.camera
 import pdb
 
 LOG = logging.getLogger('make_gazebo_samples')
@@ -27,7 +28,7 @@ def make_samples(**args):
     LOG.info(' retrieving camera calibration for {}'.format(camera_name))
     msg = rospy.wait_for_message('/{}/camera_info'.format(camera_name), sensor_msgs.msg.CameraInfo)
     cam_info_filename = os.path.join(output_dir, 'camera_info.yaml')
-    utils.write_camera_model(cam_info_filename, msg)
+    smocap.camera.write_intrinsics(cam_info_filename, msg)
     LOG.info(' wrote camera calibration to {}'.format(cam_info_filename))
 
     # Retrieve camera extrinsic

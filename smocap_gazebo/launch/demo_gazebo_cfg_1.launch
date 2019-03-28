@@ -1,8 +1,13 @@
 <?xml version="1.0"?>
 <launch>
-  <!-- start gazebo and marker -->
+
+  <!-- start gazebos, loads two aruco markers and two cameras -->
+  
+  <arg name="gz_gui" default="false" />
+
+  <!-- start gazebo -->
   <include file="$(find smocap_gazebo)/launch/gazebo.launch">
-    <arg name="gui" default="false" />
+    <arg name="gui" default="$(arg gz_gui)" />
   </include>
 
   <!-- start cameras -->

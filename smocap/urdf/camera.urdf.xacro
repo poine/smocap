@@ -33,7 +33,7 @@
       <mass value="1e-5" />
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
-      </inertial>
+    </inertial>
 
   </link>
 
@@ -77,7 +77,8 @@
     <sensor type="camera" name="camera_${_cid}">
       <update_rate>${_fps}</update_rate>
       <camera name="${_cid}">
-        <horizontal_fov>1.15</horizontal_fov>
+        <!-- <horizontal_fov>1.15</horizontal_fov> -->
+        <horizontal_fov>1.2</horizontal_fov>
         <image>
           <width>${_w}</width>
           <height>${_h}</height>

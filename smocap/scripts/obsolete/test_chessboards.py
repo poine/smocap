@@ -4,6 +4,9 @@ import logging, os, sys, numpy as np, cv2, matplotlib, matplotlib.pyplot as plt,
 import utils
 import pdb
 
+import smocap.utils
+import smocap.camera
+
 '''
    I am trying to calibrate the world to camera pose
 '''
@@ -106,19 +109,19 @@ def get_chessboard_transform(filename, camera_matrix, dist_coeffs):
 
 
 def compute_chessboard_poses():
-    camera_matrix, dist_coeffs, w, h = utils.load_camera_model('../test/camera_ueye_enac_ceiling_1_6mm.yaml')
+    camera_matrix, dist_coeffs, w, h = smocap.camera.load_intrinsics('/home/poine/work/smocap/smocap/test/camera_ueye_enac_ceiling_1_6mm.yaml')
     #filenames = ['image_01.png']
     filenames = ['image_{:02d}.png'.format(i) for i in range(1,16)]
     #print filenames
     chessboards = []
     for i, filename in enumerate(filenames):
-        img, im_points, re_points, re_err, r_vec, t_vec = get_chessboard_transform('../test/chessboard_on_floor_6mm_lens/'+filename, camera_matrix, dist_coeffs)
+        img, im_points, re_points, re_err, r_vec, t_vec = get_chessboard_transform('/home/poine/work/smocap/smocap/test/chessboard_on_floor_6mm_lens/'+filename, camera_matrix, dist_coeffs)
         chessboards.append({'filename': filename,
                        'pixels':img,
                        'points': im_points.squeeze(),
                        'reproj_points': re_points.squeeze(),
                        'reproj_err': re_err,
-                       'T':utils.T_of_t_r(t_vec.squeeze(), r_vec),
+                       'T':smocap.utils.T_of_t_r(t_vec.squeeze(), r_vec),
                        'translation': t_vec,
                        'rotation': r_vec})
     return chessboards

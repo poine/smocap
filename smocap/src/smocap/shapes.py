@@ -6,8 +6,8 @@ import smocap.utils as ut
 class Shape:
     ''' A shape is a set of unordered 2D points '''
     def __init__(self, pts):
-        self._pts = pts # 3D
-        self.pts = pts[:,:2]
+        self._pts = pts       # 3D
+        self.pts = pts[:,:2]  # 2D
         self.compute_signature()
         
     def compute_signature(self):
@@ -87,6 +87,7 @@ class Database:
     def __init__(self):
         m0  = np.array([[0, 0, 0], [0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]])
         m1  = np.array([[0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]])
+        #m1  = np.array([[0.025, 0, 0], [0.0, 0.042, 0], [0.0, -0.042, 0]]) # rosmip2
         self.shapes = [Shape(m0), Shape(m1)]
         for s in self.shapes:
             #s.compute_signature() # done in shape constructor

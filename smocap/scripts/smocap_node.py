@@ -6,8 +6,10 @@ import tf.transformations, tf2_ros
 import threading
 import pdb
 
-import smocap, smocap_node_publisher, utils, smocap.rospy_utils, smocap.real_time_utils
-
+import smocap, smocap_node_publisher
+import utils, smocap.rospy_utils, smocap.real_time_utils
+import smocap.smocap_multi
+import smocap.smocap_single
 
 
 class NodePublisher:
@@ -99,9 +101,9 @@ class SMoCapNode:
             self.losses_trapper = smocap.real_time_utils.LossesTrapper(self.trap_losses_img_dir)
         
         if self.run_mono_tracker:
-            self.smocap = smocap.SMocapMonoMarker(self.cam_sys.get_cameras(), detector_cfg_path=detector_cfg_path, height_above_floor=self.height_above_floor)
+            self.smocap = smocap.smocap_single.SMocapMonoMarker(self.cam_sys.get_cameras(), detector_cfg_path=detector_cfg_path, height_above_floor=self.height_above_floor)
         else:
-            self.smocap = smocap.SMoCapMultiMarker(self.cam_sys.get_cameras(), detector_cfg_path=detector_cfg_path, height_above_floor=self.height_above_floor)
+            self.smocap = smocap.smocap_multi.SMoCapMultiMarker(self.cam_sys.get_cameras(), detector_cfg_path=detector_cfg_path, height_above_floor=self.height_above_floor)
 
         self.publisher = MonoNodePublisher(self.cam_sys) if self.run_mono_tracker else MultiNodePublisher(self.cam_sys)
 
@@ -155,9 +157,10 @@ class SMoCapNode:
                 pass
             else:
                 self.smocap.track_marker(m, camera_idx)
-                self.publisher.publish_poses(self.smocap)
+                self.publisher.publish_poses(self.smocap) # why is this done before localize in world?
             finally:
                 self.smocap.localize_marker_in_world(m, camera_idx)
+                if m.is_localized: self.publisher.publish_pose(m.irm_to_world_T)
         self.profiler.signal_done(camera_idx, rospy.Time.now())
 
 

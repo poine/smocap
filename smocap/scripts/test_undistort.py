@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 import numpy as np, cv2
-import utils
+import smocap.camera
 
-image_path = '/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_3_backgound_distorted.png'
-cam_calib_path = '/home/poine/work/smocap.git/test/camera_ueye_enac_ceiling_1_6mm.yaml'
+image_path = '/home/poine/work/smocap/smocap/test/enac_demo_z/cam1.png'
+cam_calib_path = '/home/poine/work/smocap/smocap/params/enac_demo_z/ueye_enac_z_1.yaml'
 
 def test():
     img = cv2.imread(image_path)
@@ -13,7 +13,7 @@ def test():
         return
 
     try:
-        camera_matrix, dist_coeffs, w, h = utils.load_camera_model(cam_calib_path)
+        camera_matrix, dist_coeffs, w, h = smocap.camera.load_intrinsics(cam_calib_path)
     except:
         print('unable to read camera calibration: {}'.format(cam_calib_path))
         return
@@ -21,7 +21,7 @@ def test():
     new_camera_matrix, roi=cv2.getOptimalNewCameraMatrix(camera_matrix,dist_coeffs, (w,h), 1, (w,h))
 
     img2 = cv2.undistort(img, camera_matrix, dist_coeffs, None, new_camera_matrix)
-    cv2.imwrite('/home/poine/work/rosmip.git/rosmip/rosmip_worlds/maps/track_ethz_3_backgound_undistorted.png', img2)
+    cv2.imwrite('/home/poine/work/smocap/smocap/test/enac_demo_z/cam1_undistorted.png', img2)
 
     cv2.imshow('distorted image', img)
     cv2.imshow('undistorted image', img2)

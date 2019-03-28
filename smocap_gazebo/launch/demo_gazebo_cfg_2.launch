@@ -1,8 +1,14 @@
 <?xml version="1.0"?>
 <launch>
-  <!-- start gazebo and marker -->
+
+  <!-- start gazebos, one infrared marker and one camera -->
+
+  <arg name="gz_gui" default="false" />
+  <arg name="second_marker" default="false" />
+  
+  <!-- start gazebo -->
   <include file="$(find smocap_gazebo)/launch/gazebo.launch">
-    <arg name="gui" default="false" />
+    <arg name="gui" default="$(arg gz_gui)" />
   </include>
 
   <!-- start cameras -->
@@ -10,21 +16,21 @@
   <rosparam file="$(find smocap_gazebo)/params/camera_640.yaml" command="load" ns="camera_1"/>
   <include file="$(find smocap_gazebo)/launch/single_cam.launch"> <!-- ns="camera_1"> -->
     <arg name="camera_id" value="1"/>
-    <arg name="pos_x" value="2."/>
-    <arg name="pos_y" value="2." />
+    <arg name="pos_x" value="0."/>
+    <arg name="pos_y" value="0." />
     <arg name="pos_z" value="1.75" />
     <arg name="rot_P" value="1.5707963267948966" />
     <arg name="camera_w" value="800"/>
     <arg name="camera_h" value="600"/>
     <!--<arg name="camera_h" value="$(arg camera_h)"/>-->
   </include>
-  <include file="$(find smocap_gazebo)/launch/single_cam.launch">
-    <arg name="camera_id" value="2"/>
-    <arg name="pos_x" value="0.5"/>
-    <arg name="pos_y" value="0." />
-    <arg name="pos_z" value="1.25" />
-    <arg name="rot_P" value="1.5707963267948966" />
-  </include>
+  <!-- <include file="$(find smocap_gazebo)/launch/single_cam.launch"> -->
+  <!--   <arg name="camera_id" value="2"/> -->
+  <!--   <arg name="pos_x" value="0.5"/> -->
+  <!--   <arg name="pos_y" value="0." /> -->
+  <!--   <arg name="pos_z" value="1.25" /> -->
+  <!--   <arg name="rot_P" value="1.5707963267948966" /> -->
+  <!-- </include> -->
 
   <!-- Launch a Hand Of God markers in Gazebo -->
   <!-- Marker Configuration -->
@@ -42,19 +48,22 @@
     <param name="initial_location" value="0, 0.5, 0.09"/>
     <param name="~controlled_link" value="root_link_m0"/>
   </node>
-  
-  <!-- Marker m1 -->
-  <!-- <include file="$(find smocap_gazebo)/launch/hog_marker.launch"> -->
-  <!--   <arg name="marker_name" default="m1"/> -->
-  <!--   <arg name="marker_root_link" default="root_link_m1"/> -->
-  <!--   <arg name="marker_urdf" default="$(arg marker_urdf)"/> -->
-  <!--   <arg name="marker_mesh" default="ir_marker_0.dae"/> -->
-  <!-- </include> -->
-  <!-- remote control for m1 -->
-  <!-- <node name="smocap_marker_remote_control_gerard" pkg="smocap_gazebo" type="hog_remote.py"> -->
-  <!--   <param name="initial_location" value="0, -.5, 0.09"/> -->
-  <!--   <param name="~controlled_link" value="root_link_m1"/> -->
-  <!-- </node> -->
 
+
+  
+  <group if="$(arg second_marker)">
+    <!-- Marker m1 -->
+    <include file="$(find smocap_gazebo)/launch/hog_marker.launch">
+      <arg name="marker_name" default="m1"/>
+      <arg name="marker_root_link" default="root_link_m1"/>
+      <arg name="marker_urdf" default="$(arg marker_urdf)"/>
+      <arg name="marker_mesh" default="ir_marker_0.dae"/>
+    </include>
+    <!-- remote control for m1 -->
+    <node name="smocap_marker_remote_control_m1" pkg="smocap_gazebo" type="hog_remote.py">
+      <param name="initial_location" value="0, -.5, 0.09"/>
+      <param name="~controlled_link" value="root_link_m1"/>
+    </node>
+  </group>
   
 </launch>

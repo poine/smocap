@@ -1,9 +1,9 @@
 #!/usr/bin/env python
-
-import sys , numpy as np, rospy, cv2, yaml
+import sys , numpy as np, rospy, rospkg, cv2, yaml
 import pdb
 
-import smocap, utils
+import smocap
+import smocap.camera
 
 '''
 
@@ -36,34 +36,34 @@ def load_points(path):
 
 
 def main(args):
+    swd = rospkg.RosPack().get_path('smocap')
     if 0:
-        image_path =  '../test/F111/f111_cam_1_floor_01.png'
-        camera_path = '../test/F111/ueye_enac_ceiling_1_6mm.yaml'
-        points_path = '../test/F111/ueye_enac_ceiling_1_extrinsic_points.yaml'
+        image_path =  swd+'/test/F111/f111_cam_1_floor_01.png'
+        camera_path = swd+'/test/F111/ueye_enac_ceiling_1_6mm.yaml'
+        points_path = swd+'/test/F111/ueye_enac_ceiling_1_extrinsic_points.yaml'
     if 0:
-        image_path =  '../test/F111/f111_cam_2_floor_01.png'
-        camera_path = '../test/F111/ueye_enac_ceiling_2_6mm.yaml'
-        points_path = '../test/F111/ueye_enac_ceiling_2_extrinsic_points.yaml'
+        image_path =  swd+'/test/F111/f111_cam_2_floor_01.png'
+        camera_path = swd+'/test/F111/ueye_enac_ceiling_2_6mm.yaml'
+        points_path = swd+'/test/F111/ueye_enac_ceiling_2_extrinsic_points.yaml'
     if 0:
-        image_path =  '../test/enac_bench/floor.png'
-        camera_path = '../params/enac_demo_bench/ueye_enac_ceiling_3.yaml'
-        points_path = '../test/enac_bench/floor_extrinsic_points.yaml'
+        image_path =  swd+'/test/enac_bench/floor.png'
+        camera_path = swd+'/params/enac_demo_bench/ueye_enac_ceiling_3.yaml'
+        points_path = swd+'/test/enac_bench/floor_extrinsic_points.yaml'
     if 1:
-        image_path =  '../test/enac_demo_z/cam1.png'
-        camera_path = '../params/enac_demo_z/ueye_enac_z_1.yaml'
-        points_path = '../test/enac_demo_z/cam1_floor_extrinsic_points.yaml'
-        
+        image_path =  swd+'/test/enac_demo_z/cam1.png'
+        camera_path = swd+'/params/enac_demo_z/ueye_enac_z_1.yaml'
+        points_path = swd+'/test/enac_demo_z/cam1_floor_extrinsic_points.yaml'
         
     img = cv2.imread(image_path)
     if img is None:
         print('unable to read image: {}'.format(image_path))
         return
 
-    camera_matrix, dist_coeffs, w, h = utils.load_camera_model(camera_path)
+    camera_matrix, dist_coeffs, w, h = smocap.camera.load_intrinsics(camera_path)
     
     pts_id, pts_img,  pts_world = load_points(points_path)
 
-    (success, rotation_vector, translation_vector) = cv2.solvePnP(pts_world, pts_img.reshape(len(pts_img), 1, 2), camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
+    (success, rotation_vector, translation_vector) = cv2.solvePnP(pts_world, pts_img.reshape(-1, 1, 2), camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
     print success, rotation_vector, translation_vector
 
     rep_pts_img =  cv2.projectPoints(pts_world, rotation_vector, translation_vector, camera_matrix, dist_coeffs)[0].squeeze()

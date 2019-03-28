@@ -1,0 +1,14 @@
+
+
+camera_1:
+  intrinsics: /home/poine/work/smocap/smocap/params/enac_demo_z/ueye_enac_z_1.yaml
+  encoding: mono8
+  world_to_camo_t: [2.07327578,  2.08689012,  3.43835552]
+  world_to_camo_q: [0.99948562,  0.01061839, -0.01934665,  0.02326933]
+
+ 
+camera_2:
+  intrinsics: /home/poine/work/smocap/smocap/params/enac_demo_z/ueye_enac_z_1.yaml
+  encoding: mono8
+  world_to_camo_t: [2.34435324,  1.77016933,  2.82543134]
+  world_to_camo_q: [-0.70610063,  0.70809591,  0.00423334,  0.00204123]

@@ -4,6 +4,18 @@ import pdb
 
 import smocap.utils
 
+
+# TF messages
+def list_of_position(p): return (p.x, p.y, p.z)
+def list_of_orientation(q): return (q.x, q.y, q.z, q.w)
+
+def t_q_of_transf_msg(transf_msg):
+    return list_of_position(transf_msg.translation), list_of_orientation(transf_msg.rotation)
+
+def transf_msg_of_tq(transf_msg, t, q):
+    transf_msg.translation.x, transf_msg.translation.y, transf_msg.translation.z = t
+    transf_msg.rotation.x, transf_msg.rotation.y, transf_msg.rotation.z, transf_msg.rotation.w = q
+
 class CamerasListener:
     def __init__(self, **kwargs):
         cam_names = kwargs.get('cams', ['camera_1'])
@@ -12,12 +24,12 @@ class CamerasListener:
             rospy.Subscriber(cam_img_topic, sensor_msgs.msg.Image, self.img_callback, cam_idx, queue_size=1)
             rospy.loginfo(' subscribed to ({})'.format(cam_img_topic))
         self.img_cbk = kwargs.get('cbk', None)
+        # cv_bridge is not thread safe, so each video stream has its own bridge
         self.bridges = [cv_bridge.CvBridge() for c in cam_names]
         self.images = [None for c in cam_names]
             
 
     def img_callback(self, msg, camera_idx):
-        # cv_bridge is not thread safe, so each video stream has its own bridge
         if self.img_cbk is not None:
             try:
                 self.images[camera_idx] = self.bridges[camera_idx].imgmsg_to_cv2(msg, "passthrough")
@@ -36,7 +48,7 @@ class CamerasListener:
         rgb_images = []
         for img in self.images:
             if img is None:            # no image, make a black one
-                rgb_image = np.zeros((480, 640, 3)) 
+                rgb_image = np.zeros((480, 640, 3), dtype=np.uint8)
             elif len(img.shape) ==  2: # mono image
                 rgb_image = np.zeros((img.shape[0],img.shape[1],3), dtype=np.uint8)
                 for i in range(3):
@@ -199,7 +211,7 @@ class StatusPublisher:
         self.status_pub.publish(txt)
           
 class CamSysRetriever:
-    def fetch(self, cam_names):
+    def fetch(self, cam_names, fetch_extrinsics=True):
         cam_sys = smocap.camera_system.CameraSystem(cam_names=cam_names)
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
@@ -208,19 +220,21 @@ class CamSysRetriever:
             # Retrieve camera instrinsic 
             rospy.loginfo(' retrieving camera: "{}" configuration'.format(cam_name))
             cam_info_topic = '/{}/camera_info'.format(cam_name)
+            rospy.loginfo(' retrieving intrinsics on topic: {}'.format(cam_info_topic))
             cam_info_msg = rospy.wait_for_message(cam_info_topic, sensor_msgs.msg.CameraInfo)
             cam.set_calibration(np.array(cam_info_msg.K).reshape(3,3), np.array(cam_info_msg.D), cam_info_msg.width, cam_info_msg.height)
             rospy.loginfo('  retrieved intrinsics ({})'.format(cam_info_topic))
             # Retrieve camera extrinsic
-            while not cam.is_localized():
-                cam_frame = '{}_optical_frame'.format(cam.name)
-                try:
-                    world_to_camo_transf = self.tf_buffer.lookup_transform(target_frame=cam_frame, source_frame='world', time=rospy.Time(0))
-                    world_to_camo_t, world_to_camo_q = smocap.utils.t_q_of_transf_msg(world_to_camo_transf.transform)
-                    cam.set_location(world_to_camo_t, world_to_camo_q)
-                except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-                    rospy.loginfo_throttle(1., " waiting to get camera location")
-            rospy.loginfo('  retrieved extrinsics ({})'.format(cam_frame))
+            if fetch_extrinsics:
+                while not cam.is_localized():
+                    cam_frame = '{}_optical_frame'.format(cam.name)
+                    try:
+                        world_to_camo_transf = self.tf_buffer.lookup_transform(target_frame=cam_frame, source_frame='world', time=rospy.Time(0))
+                        world_to_camo_t, world_to_camo_q = smocap.utils.t_q_of_transf_msg(world_to_camo_transf.transform)
+                        cam.set_location(world_to_camo_t, world_to_camo_q)
+                    except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                        rospy.loginfo_throttle(1., " waiting to get camera location")
+                rospy.loginfo('  retrieved extrinsics ({})'.format(cam_frame))
             # Retrieve camera encoding
             rospy.loginfo(' retrieving camera: "{}" encoding'.format(cam_name))
             cam_img_topic = '/{}/image_raw'.format(cam_name)

@@ -9,7 +9,14 @@ import pdb
 
 import smocap
 
-LOG = logging.getLogger('test_detector')
+'''
+This is a graphical interface for tunning opencv blob detector
+
+smocap/scripts/test_blob_detector.py -i smocap/test/debug_2019_03/roscar_z_01.png -c smocap/params/enac_demo_z/expe_z_detector_default.yaml -e mono8
+
+'''
+
+LOG = logging.getLogger('test_blob_detector')
 
 #http://www.learnopencv.com/blob-detection-using-opencv-python-c/
 
@@ -57,7 +64,7 @@ class GUI:
     def __init__(self):
         self.last_dir = os.getcwd()
         self.b = Gtk.Builder()
-        gui_xml_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_detector_gui.xml')
+        gui_xml_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_blob_detector_gui.xml')
         self.b.add_from_file(gui_xml_path)
         self.window = self.b.get_object("window")
         self.window.set_title('BlobDetector')
@@ -294,8 +301,8 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     np.set_printoptions(precision=3, linewidth=300)
     parser = argparse.ArgumentParser(description='Tune Blob Detector.')
-    parser.add_argument('-i', '--img', default='/home/poine/work/smocap.git/smocap/test/gazebo_samples/image_09.png')
-    parser.add_argument('-c', '--cfg', default='/home/poine/work/smocap.git/smocap/params/gazebo_detector_cfg.yaml')
+    parser.add_argument('-i', '--img', default='/home/poine/work/smocap/smocap/test/gazebo_samples/image_09.png')
+    parser.add_argument('-c', '--cfg', default='/home/poine/work/smocap/smocap/params/gazebo_detector_cfg.yaml')
     parser.add_argument('-e', '--enc', default='bgr8')
     args = parser.parse_args()
     #pdb.set_trace()

@@ -1,4 +1,5 @@
 import numpy as np, cv2
+import yaml
 import pdb
 import smocap.utils
 
@@ -48,5 +49,71 @@ class Camera:
         return roi
 
     def is_localized(self): return self.world_to_cam_t is not None
+
+    def load_intrinsics(self, filename):
+        self.intrinsics_filename = filename
+        camera_matrix, dist_coeffs, w, h = load_intrinsics(filename)
+        self.set_calibration(camera_matrix, dist_coeffs, w, h)
     
-    
+    def load_all(self, kwargs):
+        print kwargs
+        self.load_intrinsics(kwargs['intrinsics'])
+        self.set_encoding(kwargs['encoding'])
+        t_world_to_camo_t = np.array(kwargs['world_to_camo_t'])
+        t_world_to_camo_q = np.array(kwargs['world_to_camo_q'])
+        self.set_location(t_world_to_camo_t, t_world_to_camo_q)
+        #pdb.set_trace()
+
+
+    def to_yaml(self):
+        txt = '''intrinsics: {}
+  encoding: {}
+  world_to_camo_t: {}
+  world_to_camo_q: {}'''.format(self.intrinsics_filename, self.img_encoding, self.world_to_cam_t.tolist(), self.world_to_cam_q.tolist())
+        return txt
+        
+### Utils
+
+# Load camera model
+# I should use something from camera_calibration_parsers
+def load_intrinsics(filename, verbose=False):
+    with open(filename) as f:
+        _dict = yaml.load(f)
+        camera_matrix = np.array(_dict.get('camera_matrix')['data']).reshape(3, 3)
+        dist_coeffs = np.array(_dict['distortion_coefficients']['data'])
+        w, h = _dict['image_width'], _dict['image_height']
+        if verbose:
+            print('loading camera calibration from {}'.format(filename))
+            print(' camera_matrix\n{}'.format(camera_matrix))
+            print(' distortion\n{}'.format(dist_coeffs))
+    return camera_matrix, dist_coeffs, w, h
+
+# stolen from /opt/ros/kinetic/lib/python2.7/dist-packages/camera_calibration/calibrator.py
+def write_extrinsics(filename, cam_info_msg, cname='unknown'):
+    #print cam_info_msg
+    txt = (""
+           + "image_width: " + str(cam_info_msg.width) + "\n"
+           + "image_height: " + str(cam_info_msg.height) + "\n"
+           + "camera_name: " + cname + "\n"
+           + "camera_matrix:\n"
+           + "  rows: 3\n"
+           + "  cols: 3\n"
+           + "  data: [" + ", ".join(["{:.12f}".format(i) for i in  np.array(cam_info_msg.K).reshape(1,9)[0]]) + "]\n"
+           + "distortion_model: " + ("rational_polynomial" if len(cam_info_msg.D) > 5 else "plumb_bob") + "\n"
+           + "distortion_coefficients:\n"
+           + "  rows: 1\n"
+           + "  cols: 5\n"
+           + "  data: [" + ", ".join(["%8f" % cam_info_msg.D[i] for i in range(len(cam_info_msg.D))]) + "]\n"
+           + "rectification_matrix:\n"
+           + "  rows: 3\n"
+           + "  cols: 3\n"
+           + "  data: [" + ", ".join(["%8f" % i for i in np.array(cam_info_msg.R).reshape(1,9)[0]]) + "]\n"
+           + "projection_matrix:\n"
+           + "  rows: 3\n"
+           + "  cols: 4\n"
+           + "  data: [" + ", ".join(["%8f" % i for i in np.array(cam_info_msg.P).reshape(1,12)[0]]) + "]\n"
+           + "\n")
+    with open(filename, 'w') as f:
+        #f.write("%YAML:1.0\n")
+        #yaml.dump(calib, f)
+        f.write(txt)
