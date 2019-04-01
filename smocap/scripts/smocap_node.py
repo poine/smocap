@@ -49,13 +49,17 @@ class MonoNodePublisher(NodePublisher):
         
 class MultiNodePublisher(NodePublisher):
 
-    def __init__(self, cam_sys):
+    def __init__(self, cam_sys, _smocap):
         NodePublisher.__init__(self, cam_sys)
-        self.poses_pub =  smocap.rospy_utils.PoseArrayPublisher()
-
+        self.pose_array_pub =  smocap.rospy_utils.PoseArrayPublisher()
+        self.poses_pub = smocap.rospy_utils.PosesPublisher(len(_smocap.markers))
+        
+    def publish_pose(self, mid, T_m2w):
+        self.poses_pub.publish(mid, T_m2w)
+     
     def publish_poses(self, _mocap):
         Ts_m2w = [m.irm_to_world_T for m in _mocap.markers]
-        self.poses_pub.publish(Ts_m2w)
+        self.pose_array_pub.publish(Ts_m2w)
         
     def write_status(self, _profiler, _mocap):
         txt = '\nTime: {}\n'.format(rospy.Time.now().to_sec())
@@ -81,7 +85,6 @@ class SMoCapNode:
         self.trap_losses =   rospy.get_param('~trap_losses', False)
         self.trap_losses_img_dir = rospy.get_param('~trap_losses_img_dir', '/home/poine/work/smocap.git/smocap/test/enac_demo_z/losses')
         
-        self.run_multi_tracker = rospy.get_param('~run_multi_tracker', False)
         self.run_mono_tracker = rospy.get_param('~run_mono_tracker', True)
         self.height_above_floor = rospy.get_param('~height_above_floor', 0.05)
         
@@ -89,7 +92,6 @@ class SMoCapNode:
         rospy.loginfo('   using detector config: "{}"'.format(detector_cfg_path))
         rospy.loginfo('   trapping losses: "{}"'.format(self.trap_losses))
         rospy.loginfo('   run_mono_tracker: "{}"'.format(self.run_mono_tracker))
-        rospy.loginfo('   run_multi_tracker: "{}"'.format(self.run_multi_tracker))
         rospy.loginfo('   height_above_floor: "{}"'.format(self.height_above_floor))
         
         # Retrieve camera configuration from ROS
@@ -105,7 +107,7 @@ class SMoCapNode:
         else:
             self.smocap = smocap.smocap_multi.SMoCapMultiMarker(self.cam_sys.get_cameras(), detector_cfg_path=detector_cfg_path, height_above_floor=self.height_above_floor)
 
-        self.publisher = MonoNodePublisher(self.cam_sys) if self.run_mono_tracker else MultiNodePublisher(self.cam_sys)
+        self.publisher = MonoNodePublisher(self.cam_sys) if self.run_mono_tracker else MultiNodePublisher(self.cam_sys, self.smocap)
 
         # Start frame searchers
         self.frame_searchers = [smocap.real_time_utils.FrameSearcher(i, self.smocap, self.profiler) for i, c in enumerate(self.cam_sys.get_cameras())]
@@ -150,17 +152,18 @@ class SMoCapNode:
         # post full image for slow full frame searchers
         self.frame_searchers[camera_idx].put_image(cv_image, seq, stamp)
         
-        for m in self.smocap.markers:
+        for mid, m in enumerate(self.smocap.markers):
             try:
                 self.smocap.detect_marker_in_roi(cv_image, camera_idx, stamp, m)
             except (smocap.MarkerNotLocalizedException, smocap.MarkerNotDetectedException, smocap.MarkerNotInFrustumException):
                 pass
             else:
                 self.smocap.track_marker(m, camera_idx)
-                self.publisher.publish_poses(self.smocap) # why is this done before localize in world?
             finally:
                 self.smocap.localize_marker_in_world(m, camera_idx)
-                if m.is_localized: self.publisher.publish_pose(m.irm_to_world_T)
+                self.publisher.publish_poses(self.smocap)
+                #if mid == 1 and m.is_localized: self.publisher.publish_pose(m.irm_to_world_T)
+                if m.is_localized: self.publisher.publish_pose(mid, m.irm_to_world_T)
         self.profiler.signal_done(camera_idx, rospy.Time.now())
 
 

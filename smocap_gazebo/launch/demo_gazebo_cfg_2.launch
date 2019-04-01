@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
 
-  <!-- start gazebos, one infrared marker and one camera -->
+  <!-- start gazebos, one or two infrared markers and one camera -->
 
   <arg name="gz_gui" default="false" />
   <arg name="second_marker" default="false" />
@@ -48,8 +48,6 @@
     <param name="initial_location" value="0, 0.5, 0.09"/>
     <param name="~controlled_link" value="root_link_m0"/>
   </node>
-
-
   
   <group if="$(arg second_marker)">
     <!-- Marker m1 -->

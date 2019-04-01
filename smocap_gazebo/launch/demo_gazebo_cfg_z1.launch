@@ -6,6 +6,9 @@
   <arg name="start_gazebo" default="true" />
   <arg name="gz_gui" default="true" />
   <arg name="start_hog_marker" default="true" />
+  <arg name="second_marker" default="true" />
+  <arg name="start_smocap" default="true" />
+  <arg name="height_above_floor" default="0.06" />
   
   <!-- start gazebo -->
   <group if="$(arg start_gazebo)">
@@ -18,19 +21,21 @@
   <rosparam command="load" file="$(find smocap)/params/enac_demo_z/camera_system_full.yaml" />
   <include file="$(find smocap_gazebo)/launch/single_cam.launch"> <!-- ns="camera_1"> -->
     <arg name="camera_id" value="1"/>
-    <arg name="pos_x" value="2.07"/>
-    <arg name="pos_y" value="2.08" />
-    <arg name="pos_z" value="3.44" />
-    <arg name="rot_P" value="1.5707963267948966" />
-    <arg name="rot_Y" value="1.5707963267948966" />
-    <arg name="camera_w" value="1600"/>
-    <arg name="camera_h" value="1200"/>
+    <arg name="pos_x" value="2.073"/>
+    <arg name="pos_y" value="2.087" />
+    <arg name="pos_z" value="3.438" />
+    <arg name="rot_R" value="2.43735954836" />
+    <arg name="rot_P" value="1.51026421141" />
+    <arg name="rot_Y" value="-2.25378252195" />
+    <arg name="camera_w" value="1936"/>
+    <arg name="camera_h" value="1216"/>
+    <arg name="camera_hfov" value="1.5"/>
   </include>
 
 
 
   
-  <!-- Launch a Hand Of God marker in Gazebo -->
+  <!-- Launch one or two Hand Of God marker in Gazebo -->
   <group if="$(arg start_hog_marker)">
     <!-- Marker Configuration -->
     <arg name="marker_urdf" default="hog_ir_marker.urdf.xacro"/>
@@ -47,7 +52,32 @@
       <param name="initial_location" value="0, 0.5, 0.09"/>
       <param name="~controlled_link" value="root_link_m0"/>
     </node>
+
+    <group if="$(arg second_marker)">
+      <!-- Marker m1 -->
+      <include file="$(find smocap_gazebo)/launch/hog_marker.launch">
+	<arg name="marker_name" default="m1"/>
+	<arg name="marker_root_link" default="root_link_m1"/>
+	<arg name="marker_urdf" default="$(arg marker_urdf)"/>
+	<arg name="marker_mesh" default="ir_marker_0.dae"/>
+      </include>
+      <!-- remote control for m1 -->
+      <node name="smocap_marker_remote_control_m1" pkg="smocap_gazebo" type="hog_remote.py">
+	<param name="initial_location" value="0, -.5, 0.09"/>
+	<param name="~controlled_link" value="root_link_m1"/>
+      </node>
+    </group>
+
   </group>
-  
+
+  <!-- Start Smocap -->
+  <group if="$(arg start_smocap)">
+    <node name="smocap" pkg="smocap" type="smocap_node.py" output="screen">
+      <param name="cameras" value="camera_1" />
+      <param name="detector_cfg_path" value="$(find smocap)/params/gazebo_detector_cfg.yaml" />
+      <param name="run_mono_tracker" value="false" />
+      <param name="height_above_floor" value="$(arg height_above_floor)" />
+    </node>
+  </group>
   
 </launch>

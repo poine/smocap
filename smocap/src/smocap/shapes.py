@@ -85,8 +85,8 @@ class Shape:
 class Database:
 
     def __init__(self):
-        m0  = np.array([[0, 0, 0], [0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]])
-        m1  = np.array([[0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]])
+        m0  = np.array([[0, 0, 0], [0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]]) # ir_marker.dae
+        m1  = np.array([[0, 0.045, 0], [0, -0.045, 0], [0.04, 0, 0]]) # ir_marker_1.dae
         #m1  = np.array([[0.025, 0, 0], [0.0, 0.042, 0], [0.0, -0.042, 0]]) # rosmip2
         self.shapes = [Shape(m0), Shape(m1)]
         for s in self.shapes:

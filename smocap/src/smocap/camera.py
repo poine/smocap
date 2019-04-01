@@ -1,4 +1,4 @@
-import numpy as np, cv2
+import numpy as np, cv2, tf
 import yaml
 import pdb
 import smocap.utils
@@ -66,10 +66,20 @@ class Camera:
 
 
     def to_yaml(self):
+        # write world to camera_link transform for gazebo simulations
+        camo2caml_q = [0.5, -0.5, 0.5, 0.5] # from demo launch file
+        # this is correct when checking with rviz - i think the multiplication should be reversed... wtf!!!
+        w2caml_q = tf.transformations.quaternion_multiply(self.world_to_cam_q, camo2caml_q)
+        rpy = tf.transformations.euler_from_quaternion(w2caml_q)
         txt = '''intrinsics: {}
   encoding: {}
   world_to_camo_t: {}
-  world_to_camo_q: {}'''.format(self.intrinsics_filename, self.img_encoding, self.world_to_cam_t.tolist(), self.world_to_cam_q.tolist())
+  world_to_camo_q: {}
+  world_to_caml_eR: {}
+  world_to_caml_eP: {}
+  world_to_caml_eY: {}'''.format(self.intrinsics_filename, self.img_encoding,
+                                 self.world_to_cam_t.tolist(), self.world_to_cam_q.tolist(),
+                                 rpy[0], rpy[1], rpy[2])
         return txt
         
 ### Utils

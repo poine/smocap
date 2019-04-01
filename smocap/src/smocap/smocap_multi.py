@@ -151,7 +151,7 @@ class SMoCapMultiMarker:
             raise smocap.MarkerNotLocalizedException
         
 
-    def localize_marker_in_world(self, marker, cam_idx, verbose=True):
+    def localize_marker_in_world(self, marker, cam_idx, verbose=False):
         observation, cam = marker.observations[cam_idx], self.cameras[cam_idx]
 
         valid_obs = []
@@ -180,17 +180,23 @@ class SMoCapMultiMarker:
   
 
     def draw(self, img, cam):
+        colors = [(0, 0, 255), (0, 128, 128)]
         for mid, m in enumerate(self.markers):
             if m.has_ff_observation(cam._id):
                 o = m.get_ff_observation(cam._id)
                 #pdb.set_trace()
                 cv2.drawKeypoints(img, o.keypoints, img, (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-                pt1 = (o.roi[1].start, o.roi[0].start)
-                pt2 = (o.roi[1].stop, o.roi[0].stop) 
-                cv2.rectangle(img, pt1, pt2, (0, 0, 255), 2)
-                cv2.putText(img, '{}:roi'.format(mid), pt1, cv2.FONT_HERSHEY_SIMPLEX, 1., (0, 0, 255), 2)
+                if o.roi is None: return
+                try:
+                    pt1 = (o.roi[1].start, o.roi[0].start)
+                    pt2 = (o.roi[1].stop, o.roi[0].stop) 
+                    cv2.rectangle(img, pt1, pt2, colors[mid], 2)
+                    cv2.putText(img, '{}:roi'.format(mid), pt1, cv2.FONT_HERSHEY_SIMPLEX, 1., colors[mid], 2)
 
-                pt1 = o.centroid_img
-                pt2 = pt1 + 20*np.array([np.cos(o.orientation), np.sin(o.orientation)])
-                cv2.line(img, tuple(pt1.astype(int)), tuple(pt2.astype(int)), (0, 255, 0), thickness=1)
+                    pt1 = o.centroid_img
+                    pt2 = pt1 + 20*np.array([np.cos(o.orientation), np.sin(o.orientation)])
+                    cv2.line(img, tuple(pt1.astype(int)), tuple(pt2.astype(int)), (0, 255, 0), thickness=1)
+                except AttributeError:
+                    #pdb.set_trace()
+                    print ("in smocap multi draw, bug")
 
