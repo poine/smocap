@@ -111,7 +111,7 @@ class ImgPublisher:
 
 
 class FOVPublisher:
-    def __init__(self, cam_sys):
+    def __init__(self, cam_sys, frame_id='world'):
         self.cams_fov_pub = rospy.Publisher('/smocap/cams_fov', visualization_msgs.msg.MarkerArray, queue_size=1)
         self.cam_fov_msg = visualization_msgs.msg.MarkerArray()
         for idx_cam, (cam) in enumerate(cam_sys.get_cameras()):
@@ -129,7 +129,7 @@ class FOVPublisher:
             borders_floor_plane_world = np.array([np.dot(cam.cam_to_world_T[:3], p.tolist()+[1]) for p in borders_floor_plane_cam])
                 
             marker = visualization_msgs.msg.Marker()
-            marker.header.frame_id = "world"
+            marker.header.frame_id = frame_id
             marker.type = marker.LINE_STRIP
             marker.action = marker.ADD
             marker.id = idx_cam
@@ -233,7 +233,7 @@ class StatusPublisher:
         self.status_pub.publish(txt)
           
 class CamSysRetriever:
-    def fetch(self, cam_names, fetch_extrinsics=True):
+    def fetch(self, cam_names, fetch_extrinsics=True, world='world'):
         cam_sys = smocap.camera_system.CameraSystem(cam_names=cam_names)
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
@@ -249,20 +249,20 @@ class CamSysRetriever:
             # Retrieve camera extrinsic
             if fetch_extrinsics:
                 cam_frame = '{}_optical_frame'.format(cam.name)
-                rospy.loginfo(' -retrieving extrinsics ( world to {} )'.format(cam_frame))
+                rospy.loginfo(' -retrieving extrinsics ( {} to {} )'.format(world, cam_frame))
                 while not cam.is_localized():
                     try:
-                        world_to_camo_transf = self.tf_buffer.lookup_transform(target_frame=cam_frame, source_frame='world', time=rospy.Time(0))
+                        world_to_camo_transf = self.tf_buffer.lookup_transform(target_frame=cam_frame, source_frame=world, time=rospy.Time(0))
                         world_to_camo_t, world_to_camo_q = smocap.utils.t_q_of_transf_msg(world_to_camo_transf.transform)
                         cam.set_location(world_to_camo_t, world_to_camo_q)
                     except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                         rospy.loginfo_throttle(1., " waiting to get camera location")
-                rospy.loginfo('  retrieved extrinsics (w2co_t {} w2co_q {})'.format(np.array2string(np.asarray(world_to_camo_t), precision=3),
+                rospy.loginfo('   retrieved extrinsics (w2co_t {} w2co_q {})'.format(np.array2string(np.asarray(world_to_camo_t), precision=3),
                                                                                     np.array2string(np.asarray(world_to_camo_q), precision=4)))
             # Retrieve camera encoding
-            rospy.loginfo(' retrieving camera: "{}" encoding'.format(cam_name))
+            rospy.loginfo(' -retrieving camera encoding')
             cam_img_topic = '/{}/image_raw'.format(cam_name)
             cam_img_msg = rospy.wait_for_message(cam_img_topic, sensor_msgs.msg.Image)
             cam.set_encoding(cam_img_msg.encoding)
-            rospy.loginfo('  retrieved encoding ({})'.format(cam_img_msg.encoding))
+            rospy.loginfo('   retrieved encoding ({})'.format(cam_img_msg.encoding))
         return cam_sys

@@ -6,7 +6,7 @@ import tf.transformations, tf2_ros
 import threading
 import pdb
 
-import smocap, smocap_node_publisher
+import smocap#, smocap_node_publisher
 import utils, smocap.rospy_utils, smocap.real_time_utils
 import smocap.smocap_multi
 import smocap.smocap_single
