@@ -19,7 +19,7 @@ class Camera:
         self.invK = np.linalg.inv(self.K)
 
     def set_location(self,  world_to_camo_t, world_to_camo_q):
-        self.world_to_cam_t, self.world_to_cam_q = world_to_camo_t, world_to_camo_q 
+        self.world_to_cam_t, self.world_to_cam_q = np.asarray(world_to_camo_t), np.asarray(world_to_camo_q)
         self.world_to_cam_T = smocap.utils.T_of_t_q(world_to_camo_t, world_to_camo_q)
         self.world_to_cam_r, _unused = cv2.Rodrigues(self.world_to_cam_T[:3,:3])
         self.cam_to_world_T = np.linalg.inv(self.world_to_cam_T)
@@ -50,11 +50,27 @@ class Camera:
 
     def is_localized(self): return self.world_to_cam_t is not None
 
+    def set_undistortion_param(self, alpha=1):
+         self.undist_K, self.undist_roi = cv2.getOptimalNewCameraMatrix(self.K, self.D, (self.w,self.h), alpha, (self.w,self.h))
+
+    def undistort_img(self, img):
+        return cv2.undistort(img, self.K, self.D, None, self.undist_K)
+
+    def undistort_points(self, pts_img):
+        return cv2.undistortPoints(pts_img, self.K, self.D, None, self.undist_K)
+    
+         
     def load_intrinsics(self, filename):
         self.intrinsics_filename = filename
         camera_matrix, dist_coeffs, w, h = load_intrinsics(filename)
         self.set_calibration(camera_matrix, dist_coeffs, w, h)
-    
+
+    def load_extrinsics(self, filename):
+        self.extrinsics_filename = filename
+        ref_to_camo_t, ref_to_camo_q = load_extrinsics(filename)
+        self.set_location(ref_to_camo_t, ref_to_camo_q)
+        
+        
     def load_all(self, kwargs):
         print kwargs
         self.load_intrinsics(kwargs['intrinsics'])
@@ -127,3 +143,11 @@ def write_extrinsics(filename, cam_info_msg, cname='unknown'):
         #f.write("%YAML:1.0\n")
         #yaml.dump(calib, f)
         f.write(txt)
+
+
+def load_extrinsics(filename, verbose=False):
+    with open(filename, 'r') as stream:
+        _data = yaml.load(stream)
+    ref_to_camo_t = np.fromstring(_data['ref_to_camo_t'], sep=',')
+    ref_to_camo_q = np.fromstring(_data['ref_to_camo_q'], sep=',')
+    return ref_to_camo_t, ref_to_camo_q
