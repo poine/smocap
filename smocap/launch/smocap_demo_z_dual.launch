@@ -3,35 +3,79 @@
 
   <!-- dual cameras configuration for Z demo room -->
 
+  <arg name="start_cameras" default="true" />
+  <arg name="run_smocap" default="true" />
+  <arg name="start_cam_loc" default="true" />
+
+  <arg name="height_above_floor" default="0.05" />
+  <arg name="smocap_mode_single" default="true" />
   
   <arg name="camera1_name" value="ueye_enac_z_1" />
   <arg name="camera1_id"   value="140" /> <!-- closest camera -->
   <arg name="camera2_name" value="ueye_enac_z_2" />
   <arg name="camera2_id"   value="141" /> <!-- far end camera -->
 
+
+  <arg name="camera1_w2co_t"   value="2.07327578  2.08689012  3.43835552" />
+  <arg name="camera1_w2co_q"   value="0.99948562  0.01061839 -0.01934665  0.02326933" />
+
+  <arg name="camera2_w2co_t"   value="2.07327578  -2.08689012  3.43835552" />
+  <arg name="camera2_w2co_q"   value="0.99948562  0.01061839 -0.01934665  0.02326933" />
+  
   <!-- start cameras -->
   <!-- -->
-  <arg name="nodelet_manager_name" value="cam_nodelet_manager" />
-  <node name="$(arg nodelet_manager_name)" pkg="nodelet" type="nodelet" args="manager" output="screen" />
+  <group if="$(arg start_cameras)">
+    <arg name="nodelet_manager_name" value="cam_nodelet_manager" />
+    <node name="$(arg nodelet_manager_name)" pkg="nodelet" type="nodelet" args="manager" output="screen" />
  
-  <include file="$(find smocap)/launch/ueye_cam.launch">
-    <arg name="camera_name" value="$(arg camera1_name)"/>
-    <arg name="camera_id" value="$(arg camera1_id)"/>
-    <arg name="camera_parameters_file" value="$(find smocap)/params/enac_demo_z/cam_1_conf.ini"/>
-    <arg name="camera_parameters_file_alt" value="$(find smocap)/params/enac_demo_z/cams_conf.yaml"/>
-    <arg name="cam_nodelet_id" value="1"/>
-    <arg name="nodelet_manager_name" value="$(arg nodelet_manager_name)"/>
-  </include>
+    <include file="$(find smocap)/launch/ueye_cam.launch">
+      <arg name="camera_name" value="$(arg camera1_name)"/>
+      <arg name="camera_id" value="$(arg camera1_id)"/>
+      <arg name="camera_parameters_file" value="$(find smocap)/params/enac_demo_z/cam_1_conf.ini"/>
+      <arg name="camera_parameters_file_alt" value="$(find smocap)/params/enac_demo_z/cams_conf.yaml"/>
+      <arg name="cam_nodelet_id" value="1"/>
+      <arg name="nodelet_manager_name" value="$(arg nodelet_manager_name)"/>
+    </include>
 
-  <include file="$(find smocap)/launch/ueye_cam.launch">
-    <arg name="camera_name" value="$(arg camera2_name)"/>
-    <arg name="camera_id" value="$(arg camera2_id)"/>
-    <arg name="camera_parameters_file" value="$(find smocap)/params/enac_demo_z/cam_2_conf.ini"/>
-    <arg name="camera_parameters_file_alt" value="$(find smocap)/params/enac_demo_z/cams_conf.yaml"/>
-    <arg name="cam_nodelet_id" value="2"/>
-    <arg name="nodelet_manager_name" value="$(arg nodelet_manager_name)"/>
-  </include>  
+    <include file="$(find smocap)/launch/ueye_cam.launch">
+      <arg name="camera_name" value="$(arg camera2_name)"/>
+      <arg name="camera_id" value="$(arg camera2_id)"/>
+      <arg name="camera_parameters_file" value="$(find smocap)/params/enac_demo_z/cam_2_conf.ini"/>
+      <arg name="camera_parameters_file_alt" value="$(find smocap)/params/enac_demo_z/cams_conf.yaml"/>
+      <arg name="cam_nodelet_id" value="2"/>
+      <arg name="nodelet_manager_name" value="$(arg nodelet_manager_name)"/>
+    </include>
+  </group>
   <!---->
 
+  <!-- spawn marker localization node -->
+  <group if="$(arg run_smocap)">
+    <node name="smocap_node" pkg="smocap" type="smocap_node.py" output="screen">
+      <param name="publish_image"     type="bool"   value="true"  />
+      <param name="publish_est"       type="bool"   value="true" />
+      <param name="cameras"           type="string" value="$(arg camera1_name),$(arg camera2_name)"/>
+      <!--<param name="img_encoding"      type="string" value="mono8"  />-->
+      <param name="detector_cfg_path" type="String" value="$(find smocap)/params/enac_demo_z/expe_z_detector_default.yaml" />
+      <param name="trap_losses"       type="bool"   value="false" />
+      <param name="height_above_floor" type="string" value="$(arg height_above_floor)"/>
+      <param name="run_mono_tracker" value="$(arg smocap_mode_single)" />
+    </node>
+  </group>
+  
+  <group if="$(arg start_cam_loc)">
+    <node  name="cam1_optical_frame_to_world_frame_publisher" pkg="tf" type="static_transform_publisher"
+           args="$(arg camera1_w2co_t) $(arg camera1_w2co_q) world $(arg camera1_name)_optical_frame 100"/>
+  
+    <node  name="cam1_optical_frame_to_cam_link_publisher" pkg="tf" type="static_transform_publisher"
+	   args="0 0 0 0.5 -0.5 0.5 0.5 $(arg camera1_name)_optical_frame $(arg camera1_name)_link 50"/>
+
+
+    <node  name="cam2_optical_frame_to_world_frame_publisher" pkg="tf" type="static_transform_publisher"
+           args="$(arg camera2_w2co_t) $(arg camera2_w2co_q) world $(arg camera2_name)_optical_frame 100"/>
+  
+    <node  name="cam2_optical_frame_to_cam_link_publisher" pkg="tf" type="static_transform_publisher"
+	   args="0 0 0 0.5 -0.5 0.5 0.5 $(arg camera2_name)_optical_frame $(arg camera2_name)_link 50"/>
+  </group>
+  
    
 </launch>
