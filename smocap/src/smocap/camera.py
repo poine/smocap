@@ -52,13 +52,24 @@ class Camera:
 
     def set_undistortion_param(self, alpha=1):
          self.undist_K, self.undist_roi = cv2.getOptimalNewCameraMatrix(self.K, self.D, (self.w,self.h), alpha, (self.w,self.h))
+         #m1type = cv2.CV_32FC1
+         m1type = cv2.CV_16SC2
+         self.mapx, self.mapy = cv2.initUndistortRectifyMap(self.K, self.D, None, self.undist_K, (self.w, self.h), m1type)
 
     def undistort_img(self, img):
         return cv2.undistort(img, self.K, self.D, None, self.undist_K)
 
+    def undistort_img2(self, img):
+        return cv2.remap(img, self.mapx, self.mapy, cv2.INTER_LINEAR)
+    
     def undistort_points(self, pts_img):
         return cv2.undistortPoints(pts_img, self.K, self.D, None, self.undist_K)
-    
+
+    # look like map is the other way around (uv -> xy)
+    # https://groups.google.com/forum/#!topic/pupil-discuss/8eSuYYNEaIQ
+    def undistort_points2(self, pts_img):
+        thruth = cv2.undistortPoints(pts_img, self.K, self.D, None, self.undist_K)
+        pdb.set_trace()
          
     def load_intrinsics(self, filename):
         self.intrinsics_filename = filename

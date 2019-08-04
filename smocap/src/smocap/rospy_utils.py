@@ -111,8 +111,8 @@ class ImgPublisher:
 
 
 class FOVPublisher:
-    def __init__(self, cam_sys, frame_id='world'):
-        self.cams_fov_pub = rospy.Publisher('/smocap/cams_fov', visualization_msgs.msg.MarkerArray, queue_size=1)
+    def __init__(self, cam_sys, frame_id='world', topic='/smocap/cams_fov'):
+        self.cams_fov_pub = rospy.Publisher(topic, visualization_msgs.msg.MarkerArray, queue_size=1)
         self.cam_fov_msg = visualization_msgs.msg.MarkerArray()
         for idx_cam, (cam) in enumerate(cam_sys.get_cameras()):
             img_corners = np.array([[0., 0], [cam.w, 0], [cam.w, cam.h], [0, cam.h], [0, 0]])
