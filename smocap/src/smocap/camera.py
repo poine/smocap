@@ -36,7 +36,6 @@ class Camera:
 
     def set_encoding(self, encoding):
         self.img_encoding = encoding
-
             
     def project(self, points_world):
         return cv2.projectPoints(points_world, self.world_to_cam_r, self.world_to_cam_t, self.K, self.D)[0]
@@ -52,6 +51,7 @@ class Camera:
 
     def set_undistortion_param(self, alpha=1):
          self.undist_K, self.undist_roi = cv2.getOptimalNewCameraMatrix(self.K, self.D, (self.w,self.h), alpha, (self.w,self.h))
+         self.inv_undist_K = np.linalg.inv(self.undist_K)
          #m1type = cv2.CV_32FC1
          m1type = cv2.CV_16SC2
          self.mapx, self.mapy = cv2.initUndistortRectifyMap(self.K, self.D, None, self.undist_K, (self.w, self.h), m1type)
@@ -59,7 +59,7 @@ class Camera:
     def undistort_img(self, img):
         return cv2.undistort(img, self.K, self.D, None, self.undist_K)
 
-    def undistort_img2(self, img):
+    def undistort_img_map(self, img):
         return cv2.remap(img, self.mapx, self.mapy, cv2.INTER_LINEAR)
     
     def undistort_points(self, pts_img):
