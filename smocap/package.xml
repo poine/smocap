@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package>
+<package format="2">
   <name>smocap</name>
   <version>0.0.0</version>
   <description>The smocap package</description>
@@ -39,6 +39,8 @@
   <!--   <run_depend>message_runtime</run_depend> -->
   <!-- Use test_depend for packages you need only for testing: -->
   <!--   <test_depend>gtest</test_depend> -->
+  <depend>std_msgs</depend>
+  <depend>message_runtime</depend>
   <buildtool_depend>catkin</buildtool_depend>
 
 

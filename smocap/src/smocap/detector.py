@@ -70,7 +70,7 @@ class Detector:
         
     def load_cfg(self, path):
         with open(path, 'r') as stream:   
-            d = yaml.load(stream)
+            d = yaml.load(stream, Loader=yaml.FullLoader)
         for k in d:
             setattr(self.params, k, d[k])
         self.detector = cv2.SimpleBlobDetector_create(self.params)

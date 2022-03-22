@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys, numpy as np, rospy, rospkg, time, tf2_ros, geometry_msgs.msg
-import cv2, cv2.aruco
+import cv2, cv2.aruco as aruco
 import pdb
 
 import smocap.camera
@@ -56,8 +56,8 @@ class CamSysTFBroadcaster:
     def run(self):
         rospy.spin()
 
-def make_board(dictionary, nrow, ncol, display=False):
-    board = cv2.aruco.CharucoBoard_create(ncol, nrow, .025, .0125, dictionary)
+def make_board(dictionary, bp, display=False):#nrow, ncol, display=False):
+    board = cv2.aruco.CharucoBoard_create(bp['squaresX'], bp['squaresY'], bp['squareLength'],  bp['markerLength'], dictionary)
     if display:
         img = board.draw((200*ncol,200*nrow))
         cv2.imwrite('charuco.png',img)
@@ -90,23 +90,36 @@ def localize_aruco_board(img_gray, camera_matrix, dist_coeffs, dictionary, board
     print('chessboard corners ids: {}'.format(charucoIds.ravel()))
     img_res = cv2.aruco.drawDetectedCornersCharuco(img_res, charucoCorners, charucoIds, (0,255,0))    
 
-    retval, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(charucoCorners, charucoIds, board, camera_matrix, dist_coeffs)  # pose estimation from a charuco board
+    #retval, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(charucoCorners, charucoIds, board, camera_matrix, dist_coeffs)  # pose estimation from a charuco board
+    retval, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(charucoCorners, charucoIds, board, camera_matrix, dist_coeffs, None, None, False)
     #print retval, rvec, tvec
-    cv2.aruco.drawAxis(img_res, camera_matrix, dist_coeffs, rvec, tvec, 100)
+    cv2.aruco.drawAxis(img_res, camera_matrix, dist_coeffs, rvec, tvec, 0.1)
 
     world_to_cam_T = smocap.utils.T_of_t_r(tvec.squeeze(), rvec)
     world_to_cam_t, world_to_cam_q = smocap.utils.tq_of_T(world_to_cam_T)
     print(' world_to_cam_t {} world_to_cam_q {}'.format(world_to_cam_t, world_to_cam_q))
 
+    cam_to_world_T = np.linalg.inv(world_to_cam_T)
+    cam_to_world_t, cam_to_world_q = smocap.utils.tq_of_T(cam_to_world_T)
+    print(' cam_to_world_t {} cam_to_world_q {}'.format(cam_to_world_t, cam_to_world_q))
+
+    
     return img_res, world_to_cam_t, world_to_cam_q
 
+MY_DICT = aruco.DICT_5X5_1000
+MY_BOARD_PARAMS_A4 = {'squaresX':7,
+                      'squaresY':5,
+                      'squareLength':0.04,
+                      'markerLength':0.03} # 5px/mm
 
 def main(args):
     swd = rospkg.RosPack().get_path('smocap')
-    camera_name = 'ueye_enac_112'
+    camera_name = 'ueye_enac_z_2'
     camera_intrinsic_path = swd+'/params/ricou/{}.yaml'.format(camera_name)
-    nrow, ncol, dictionary = 7, 9, cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
-    board = make_board(dictionary, nrow, ncol)
+
+    #nrow, ncol, dictionary = 7, 9, cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+    dictionary = cv2.aruco.getPredefinedDictionary(MY_DICT)
+    board = make_board(dictionary, MY_BOARD_PARAMS_A4)#nrow, ncol)
 
     cam_sys = smocap.camera_system.CameraSystem(cam_names=[camera_name])
     cam = cam_sys.get_camera(0)

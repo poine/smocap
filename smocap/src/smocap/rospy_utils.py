@@ -2,7 +2,34 @@ import numpy as np
 import rospy, sensor_msgs.msg, geometry_msgs.msg, visualization_msgs.msg, std_msgs.msg, cv_bridge, tf2_ros, cv2
 import pdb
 
+import common_vision.rospy_utils as cv_rpu
+
 import smocap.utils
+import smocap.msg
+
+class SmocapStatusPublisher(cv_rpu.SimplePublisher):
+    def __init__(self, topic='smocap/status2', what='N/A', timeout=0.1, user_callback=None):
+        cv_rpu.SimplePublisher.__init__(self, topic, smocap.msg.Status, what)
+
+    def publish(self, model):
+        (_profiler, _mocap) = model
+        msg = smocap.msg.Status()
+        msg.header.stamp = rospy.Time.now() # FIXME... maybe not? use smocap date ?
+        msg.fps = np.copy(_profiler.fps)
+        msg.skipped = np.copy(_profiler.skipped)
+        msg.ff_duration = np.copy(_profiler.ff_duration)
+        msg.roi_duration = np.copy([_p.to_sec() for _p in _profiler.processing_duration])
+
+        msg.marker_localized = [_mocap.marker.is_localized]
+        msg.marker_pose = [geometry_msgs.msg.Pose()]
+        smocap.utils._position_and_orientation_from_T(msg.marker_pose[0].position, msg.marker_pose[0].orientation, _mocap.marker.irm_to_world_T)
+        cv_rpu.SimplePublisher.publish(self, msg)
+
+
+class SmocapStatusSubscriber(cv_rpu.SimpleSubscriber):
+    def __init__(self, topic='smocap/status2', what='N/A', timeout=0.5, user_callback=None):
+        cv_rpu.SimpleSubscriber.__init__(self, topic, smocap.msg.Status, what, timeout, user_callback)
+
 
 
 # TF messages
@@ -78,7 +105,8 @@ class ImgPublisher:
     def __init__(self, cam_sys):
         img_topic = "/smocap/image_debug"
         rospy.loginfo(' publishing on ({})'.format(img_topic))
-        self.image_pub = rospy.Publisher(img_topic, sensor_msgs.msg.Image, queue_size=1)
+        #self.image_pub = rospy.Publisher(img_topic, sensor_msgs.msg.Image, queue_size=1)
+        self.image_pub = rospy.Publisher(img_topic+'/compressed', sensor_msgs.msg.CompressedImage, queue_size=1)
         self.bridge = cv_bridge.CvBridge()
         self.cam_sys = cam_sys
         w, h = np.sum([cam.w for cam in  cam_sys.get_cameras()]), np.max([cam.h for cam in cam_sys.get_cameras()])
@@ -107,7 +135,12 @@ class ImgPublisher:
                 txt, loc = 'ff dur: {:.3f} s'.format(profiler.ff_duration[i]), (10, 210)
                 cv2.putText(self.img[:,x0:x1], txt, loc, cv2.FONT_HERSHEY_SIMPLEX, fs, fcol, 2)
                 x0 = x1
-        self.image_pub.publish(self.bridge.cv2_to_imgmsg(self.img, "rgb8"))
+        #self.image_pub.publish(self.bridge.cv2_to_imgmsg(self.img, "rgb8"))
+        msg = sensor_msgs.msg.CompressedImage()
+        msg.header.stamp = rospy.Time.now()
+        msg.format = "jpeg"
+        msg.data = np.array(cv2.imencode('.jpg', cv2.cvtColor(self.img, cv2.COLOR_RGB2BGR))[1]).tostring()
+        self.image_pub.publish(msg)
 
 
 class FOVPublisher:

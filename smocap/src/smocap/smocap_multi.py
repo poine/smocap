@@ -93,7 +93,7 @@ class SMoCapMultiMarker:
         shape = smocap.shapes.Shape(obs.kps_img)
         shape_id, shape_ref = self.shape_database.find(shape)
         if shape_id == -1 or shape_ref != marker.ref_shape:
-            if shape_ref != marker.ref_shape: print 'detected wrong shape'
+            if shape_ref != marker.ref_shape: print('detected wrong shape')
             obs.is_valid = False
             raise smocap.MarkerNotDetectedException
         shape.sort_points(debug=False, sort_cw=True)

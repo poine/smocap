@@ -216,9 +216,9 @@ def decorate(ax, title=None, xlab=None, ylab=None, legend=None, xlim=None, ylim=
         ax.yaxis.set_label_text(ylab)
     if title:
         ax.set_title(title, my_title_spec)
-    if legend <> None:
+    if legend is not None:
         ax.legend(legend, loc='best')
-    if xlim <> None:
+    if xlim is not None:
         ax.set_xlim(xlim[0], xlim[1])
-    if ylim <> None:
+    if ylim is not None:
         ax.set_ylim(ylim[0], ylim[1])

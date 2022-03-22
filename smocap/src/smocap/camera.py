@@ -83,7 +83,7 @@ class Camera:
         
         
     def load_all(self, kwargs):
-        print kwargs
+        print(kwargs)
         self.load_intrinsics(kwargs['intrinsics'])
         self.set_encoding(kwargs['encoding'])
         t_world_to_camo_t = np.array(kwargs['world_to_camo_t'])

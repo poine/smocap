@@ -1,0 +1,19 @@
+blobColor: 255
+filterByArea: true
+filterByCircularity: true
+filterByColor: true
+filterByConvexity: true
+filterByInertia: true
+maxArea: 500.0
+maxCircularity: 3.4028234663852886e+38
+maxConvexity: 3.4028234663852886e+38
+maxInertiaRatio: 3.4028234663852886e+38
+maxThreshold: 220.0
+minArea: 10.0
+minCircularity: 0.6000000238418579
+minConvexity: 0.699999988079071
+minDistBetweenBlobs: 8.0
+minInertiaRatio: 0.5
+minRepeatability: !!python/long '2'
+minThreshold: 60.0
+thresholdStep: 5.0

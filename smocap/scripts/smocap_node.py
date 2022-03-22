@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import roslib
 #roslib.load_manifest('my_package')
 import math, os, sys , time, numpy as np, rospy, cv2, sensor_msgs.msg, geometry_msgs.msg, cv_bridge
@@ -6,27 +6,34 @@ import tf.transformations, tf2_ros
 import threading
 import pdb
 
+import common_vision.rospy_utils as cv_rpu
+
 import smocap#, smocap_node_publisher
 import utils, smocap.rospy_utils, smocap.real_time_utils
 import smocap.smocap_multi
 import smocap.smocap_single
 
+import smocap.msg
 
 class NodePublisher:
     def __init__(self, cam_sys):
         self.pose_pub = smocap.rospy_utils.PosePublisher()
         self.fov_pub =  smocap.rospy_utils.FOVPublisher(cam_sys)
         self.stat_pub = smocap.rospy_utils.StatusPublisher()
+        self.stat_pub2 = smocap.rospy_utils.SmocapStatusPublisher()
         self.img_pub = smocap.rospy_utils.ImgPublisher(cam_sys)
+        #self.img_pub = cv_rpu.CompressedImgPublisher(cam=None, img_topic='/smocap/image_debug')
 
     def publish_pose(self, T_m2w):
         self.pose_pub.publish(T_m2w)
-
     
     def publish_periodic(self, _profiler, _mocap, _imgs):
         self.fov_pub.publish()
         self.stat_pub.publish_txt(self.write_status(_profiler, _mocap))
+        self.stat_pub2.publish((_profiler, _mocap))
         self.img_pub.publish( _imgs, _profiler, _mocap)
+        #if len(_imgs)>0:
+        #    self.img_pub.publish2( _imgs[0])
 
 
 class MonoNodePublisher(NodePublisher):
@@ -46,7 +53,7 @@ class MonoNodePublisher(NodePublisher):
         a_w_to_m = math.atan2(_mocap.marker.irm_to_world_T[1,0], _mocap.marker.irm_to_world_T[0,0])
         txt += '   pose {} m {:5.2f} deg\n'.format(t_w_to_m, utils.deg_of_rad(a_w_to_m))
         return txt
-        
+
 class MultiNodePublisher(NodePublisher):
 
     def __init__(self, cam_sys, _smocap):
@@ -118,7 +125,8 @@ class SMoCapNode:
  
         
         
-    def img_callback_mono(self, cv_image, (camera_idx, stamp, seq)):
+    def img_callback_mono(self, cv_image, args):
+        camera_idx, stamp, seq = args
         ''' 
         Called in main thread.
         '''
@@ -136,17 +144,15 @@ class SMoCapNode:
         except (smocap.MarkerNotDetectedException, smocap.MarkerNotLocalizedException, smocap.MarkerNotInFrustumException):
             pass
         else:
-            if self.publish_est:
-                if not self.smocap.marker.is_localized :
-                    print('error publishing non localized pose')
-                else:
-                    self.publisher.publish_pose(self.smocap.marker.irm_to_world_T)
+            if self.publish_est and self.smocap.marker.is_localized :
+                self.publisher.publish_pose(self.smocap.marker.irm_to_world_T)
         finally:
             self.smocap.localize_marker_in_world(camera_idx)
             self.profiler.signal_done(camera_idx, rospy.Time.now())
             
 
-    def img_callback_multi(self, cv_image, (camera_idx, stamp, seq)):
+    def img_callback_multi(self, cv_image, args):
+        (camera_idx, stamp, seq) = args
         # 
         self.profiler.signal_start(camera_idx, stamp, seq)
         # post full image for slow full frame searchers

@@ -56,7 +56,7 @@ class LossesTrapper:
     def record(self, cam_idx, img, pose):
         img_path = self.img_dir+'/img_{:03d}.png'.format(len(self.lost_log))
         #pdb.set_trace()
-        print 'lost in cam {} at {} ({})'.format(cam_idx, pose[:3,3], img_path)
+        print('lost in cam {} at {} ({})'.format(cam_idx, pose[:3,3], img_path))
         with self.lost_log_lock:
             self.lost_log.append(pose[:3,3])
         #cv2.imwrite(img_path, img)

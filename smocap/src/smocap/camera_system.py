@@ -19,7 +19,7 @@ class CameraSystem:
         cam_names = _dict.keys()
         self.cameras = [smocap.camera.Camera(i, cam_name) for i, cam_name in enumerate(cam_names)]
         for cam, cam_name in zip(self.cameras, cam_names):
-            print cam_name
+            print(cam_name)
             cam.load_all(_dict[cam_name])
             
         #pdb.set_trace()

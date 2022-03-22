@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!--
+
+    single camera configuration on the roboteck track
+
+      ## Intrinsic calibration:
+          print chessboard pattern: common_vision/scripts/test/calibrate_extrinsics_ng.py
+          interactive:
+            rosrun camera_calibration cameracalibrator.py -\-size 6x4 -\-square 0.04 image:=/ueye_enac_z_2/image_raw -k 5
+          batch:
+	    /opt/ros/noetic/lib/camera_calibration/tarfile_calibration.py -\-mono -q 0.04 -s 6x4 ~/work/camera_calibrations/ueye_enac_z_2__2022_03_22.tgz
+  -->
+
+  <arg name="run_camera" default="true" />
+  <arg name="run_autocalib" default="true" />
+  <arg name="run_smocap" default="true" />
+
+  <arg name="height_above_floor" default="0.11" />
+  <arg name="smocap_mode_single" default="true" />
+  
+  <arg name="camera1_name" value="ueye_enac_z_2" />
+  <arg name="camera1_id"   value="141" />
+
+  
+  <!-- start cameras stream -->
+  <group if="$(arg run_camera)">
+    <arg name="nodelet_manager_name" value="cam_nodelet_manager" />
+    <node name="$(arg nodelet_manager_name)" pkg="nodelet" type="nodelet" args="manager" output="screen" />
+ 
+    <include file="$(find smocap)/launch/ueye_cam.launch">
+      <arg name="camera_name" value="$(arg camera1_name)"/>
+      <arg name="camera_id" value="$(arg camera1_id)"/>
+      <arg name="camera_parameters_file" value="$(find smocap)/params/roboteck/cam_2_conf.ini"/>
+      <arg name="camera_parameters_file_alt" value="$(find smocap)/params/roboteck/cam_conf_2.yaml"/>
+      <arg name="cam_nodelet_id" value="1"/>
+      <arg name="nodelet_manager_name" value="$(arg nodelet_manager_name)"/>
+    </include>
+
+    <!--
+	spawn static transform publishers
+	  - world to camera_link
+	  - camera_link to camera_optical_frame
+    -->
+    <node  name="$(arg camera1_name)_optical_frame_to_cam_link_publisher" pkg="tf" type="static_transform_publisher"
+	   args="0 0 0 0.5 -0.5 0.5 0.5 $(arg camera1_name)_optical_frame $(arg camera1_name)_link 50"/>
+    
+    
+    <group unless="$(arg run_autocalib)">
+
+      <arg name="camera1_w2co_t"   value="0.78,  0.86,  1.129"/>
+      <arg name="camera1_w2co_q"   value="0.718,  0.692, -0.022, -0.066" />
+
+      <node  name="cam1_optical_frame_to_world_frame_publisher" pkg="tf" type="static_transform_publisher"
+             args="$(arg camera1_w2co_t) $(arg camera1_w2co_q) world $(arg camera1_name)_optical_frame 100"/>
+    </group>
+  </group>
+  <!-- -->
+
+  <group if="$(arg run_autocalib)">
+    <node name="autocalib_node" pkg="smocap" type="cal_extr_track_node.py" output="screen">
+      <param name="camera" value="$(arg camera1_name)"/>
+    </node>
+  </group>
+
+  <!---->
+
+  <!--
+      spawn marker localization node
+  -->
+  <group if="$(arg run_smocap)">
+    <node name="smocap_node" pkg="smocap" type="smocap_node.py" output="screen">
+      <param name="publish_image"     type="bool"   value="true"  />
+      <param name="publish_est"       type="bool"   value="true" />
+      <param name="cameras"           type="string" value="$(arg camera1_name)"/>
+      <param name="img_encoding"      type="string" value="mono8"  />
+      <param name="detector_cfg_path" type="String" value="$(find smocap)/params/roboteck/blob_detector_cfg.yaml" />
+      <param name="trap_losses"       type="bool"   value="false" />
+      <param name="height_above_floor" type="string" value="$(arg height_above_floor)"/>
+      <param name="run_mono_tracker" value="$(arg smocap_mode_single)" />
+    </node>
+  </group>
+  <!---->
+ 
+   
+</launch>
