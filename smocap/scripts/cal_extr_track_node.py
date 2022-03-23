@@ -5,9 +5,14 @@
 # Calibrate camera extrinsics using a known track
 #
 
+#
+# TODO: figure why it eats so much CPU when only sending transforms
+# make load/save
+#
+
 import os, sys, logging
 import math, numpy as np
-import rospy, tf2_ros,  geometry_msgs.msg, rospkg
+import rospy, tf2_ros,  geometry_msgs.msg, std_msgs.msg, rospkg, dynamic_reconfigure.server
 
 import cv2, cv2.aruco as aruco
 LOG = logging.getLogger('calibrate_extrisinc')
@@ -17,6 +22,9 @@ import common_vision.rospy_utils as cv_rpu
 import common_vision.camera as cv_c
 import common_vision.bird_eye as cv_be
 import two_d_guidance as tdg
+
+import smocap.cfg.smocap_calib_nodeConfig
+
 
 MY_DICT = aruco.DICT_5X5_1000
 MY_BOARD_PARAMS_A4 = {'squaresX':7,
@@ -34,14 +42,16 @@ class ExtrCalibPipeline(cv_u.Pipeline):
 
         self.bird_eye = None
         
-        self.display_mode = 3
+        self.display_mode = 0
         self.img = None
         self.corners = None
         self.rvec, self.tvec = None, None
         self.ref_2_cam_T = None
         tdg_wd = rospkg.RosPack().get_path('two_d_guidance')
         self.track_path = tdg.Path(load=os.path.join(tdg_wd, 'paths/roboteck/track.npz'))
-    
+
+    def set_display_mode(self, m): self.display_mode=m
+        
     def _detect_track(self, img, cam, thresh=180):
         blurred_img = cv2.GaussianBlur(img, (9, 9), 0)
         # find white area
@@ -71,7 +81,7 @@ class ExtrCalibPipeline(cv_u.Pipeline):
         self.ref_2_board_T = cv_u.T_of_t_R(self.ref_2_board_t, self.ref_2_board_R)
         self.ref_2_cam_T = np.dot(self.board_2_cam_T, self.ref_2_board_T)
         cam.set_pose_T(self.ref_2_cam_T)
-        
+        rospy.loginfo('found world to cam pose')
         
     def _process_image(self, img, cam, stamp, stop_when_localized=True):
         self.img = img
@@ -132,12 +142,33 @@ class BeParamTrack:
     
 class Node(cv_rpu.SimpleVisionPipeNode):
 
-    def __init__(self, compress_debug=True):
+    def __init__(self, cache_filename=None):
        cv_rpu.SimpleVisionPipeNode.__init__(self, ExtrCalibPipeline, self.pipe_cbk, img_fmt="passthrough", fetch_extrinsics=False)
-       self.img_pub = cv_rpu.CompressedImgPublisher(self.cam, '/smocap/calib_extr/image')
+       self.img_pub = cv_rpu.CompressedImgPublisher(self.cam, '/smocap_calib/image')
        self.broadcaster = tf2_ros.StaticTransformBroadcaster()
        self.calibrated = False
-       self.start()
+       self.cfg_srv = dynamic_reconfigure.server.Server(smocap.cfg.smocap_calib_nodeConfig, self.cfg_callback)
+       self.msg_sub = rospy.Subscriber('/smocap_calib/save_to_disk', std_msgs.msg.String, self.msg_cbk)
+       if cache_filename is not None and os.path.exists(cache_filename):
+           self.cam.load_extrinsics(cache_filename)
+           self.pipeline.ref_2_cam_T = self.cam.world_to_cam_T
+       else:
+           self.start() # start our camera image subscription in order to detect charuco board 
+
+    def cfg_callback(self, config, level):
+        rospy.loginfo( "  Reconfigure Request:")
+        rospy.loginfo(f"    Display_mode: {config['display_mode']}")
+        self.pipeline.set_display_mode(config['display_mode'])
+        return config
+
+    def msg_cbk(self, data):
+        rospy.loginfo(f"{rospy.get_caller_id()}: Received message {data.data}")
+        if self.calibrated:
+            world_to_cam_t, world_to_cam_q = cv_u.tq_of_T(self.pipeline.ref_2_cam_T)
+            filename = data.data
+            cv_c.write_extrinsics(filename, world_to_cam_t, world_to_cam_q)
+            print(f' world_to_cam_t {world_to_cam_t} world_to_cam_q {world_to_cam_q}')
+            print(f' saved calib to {filename}')
 
     def pipe_cbk(self):
         #self.img_pub.publish(self, self.cam, "bgr8")
@@ -150,6 +181,7 @@ class Node(cv_rpu.SimpleVisionPipeNode):
         if self.pipeline.has_extrinsics():
             if not self.calibrated:
                 self.calibrated = True
+                if self.started(): self.stop() # disconnect from image source
                 self.bird_eye = cv_be.BirdEye(self.cam, BeParamTrack(), cache_filename='/tmp/be_cfg.npz', force_recompute=False)
                 self.pipeline.bird_eye = self.bird_eye # bleeeee....
             self.send_transform()
@@ -175,12 +207,11 @@ class Node(cv_rpu.SimpleVisionPipeNode):
 
             
     
-def main(args):
-    name = 'smocap_cal_extr_node'
+def main(args, name = 'smocap_cal_extr_node'):
     rospy.init_node(name)
     rospy.loginfo('{} starting'.format(name))
     rospy.loginfo('  using opencv version {}'.format(cv2.__version__))
-    Node().run(low_freq=1)
+    Node(cache_filename='/tmp/smocap_roboteck_extr.yaml').run(low_freq=1)
 
 
 if __name__ == '__main__':

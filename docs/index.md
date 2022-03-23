@@ -15,3 +15,9 @@ layout: default
 ```
 /smocap/scripts/test_detect.py -i smocap/test/gazebo_samples/image_09.png -c smocap/params/gazebo_detector_cfg.yaml -e bgr8
 ```
+
+rostopic pub /smocap_calib/save_to_disk std_msgs/String "/tmp/smocap_roboteck_extr.yaml"
+
+
+
+

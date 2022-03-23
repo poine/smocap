@@ -77,6 +77,7 @@
       <param name="img_encoding"      type="string" value="mono8"  />
       <param name="detector_cfg_path" type="String" value="$(find smocap)/params/roboteck/blob_detector_cfg.yaml" />
       <param name="trap_losses"       type="bool"   value="false" />
+      <param name="trap_losses_img_dir" type="String" value="$(find smocap)/test/roboteck/losses" />
       <param name="height_above_floor" type="string" value="$(arg height_above_floor)"/>
       <param name="run_mono_tracker" value="$(arg smocap_mode_single)" />
     </node>

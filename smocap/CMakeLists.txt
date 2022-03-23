@@ -91,6 +91,7 @@ generate_messages(
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
 generate_dynamic_reconfigure_options(
    cfg/smocap_display_node.cfg
+   cfg/smocap_calib_node.cfg
 #   cfg/DynReconf2.cfg
 )
 
