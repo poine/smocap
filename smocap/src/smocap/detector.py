@@ -32,8 +32,10 @@ class Detector:
         self.params = cv2.SimpleBlobDetector_Params()
         if cfg_path is not None:
             self.load_cfg(cfg_path)
+            print(f'detector loading config from {cfg_path}')
         else:
             self.detector = cv2.SimpleBlobDetector_create(self.params)
+            print(f'detector using default config (unlikely to work)')
 
     def detect(self, img, roi):
         if self.img_encoding == 'rgb8':

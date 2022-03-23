@@ -83,13 +83,12 @@ class GUI:
         self.detector_params_entries = {}
         for p in detector_params_desc:
             if isinstance(p, dict):
-                #print 'dict', p
-                button = Gtk.CheckButton(p['name'])
+                button = Gtk.CheckButton(label=p['name'])
                 grid.attach(button, 0, j, 1, 1)
                 self.detector_params_toggle_buttons[p['name']]= button
                 j+=1
                 for sp in p['params']:
-                    label = Gtk.Label('{}'.format(sp))
+                    label = Gtk.Label(label='{}'.format(sp))
                     label.set_justify(Gtk.Justification.LEFT)
                     grid.attach(label, 0, j, 1, 1)
                     if 0:
@@ -103,7 +102,7 @@ class GUI:
                     #print sp
                     j+=1
             else:
-                label = Gtk.Label('{}'.format(p))  
+                label = Gtk.Label(label=f'{p}')  
                 label.set_justify(Gtk.Justification.LEFT)
                 grid.attach(label, 0, j, 1, 1)
                 entry = Gtk.Entry()
@@ -112,7 +111,8 @@ class GUI:
                 j+=1
 
         scale = self.b.get_object("scale_gamma")
-        adj = Gtk.Adjustment(1., 0.1, 2., 0.05, 0.1, 0)
+        adj_args = {'value':1, 'lower':0.1, 'upper':2., 'step_increment':0.05, 'page_increment':0.1, 'page_size':0}
+        adj = Gtk.Adjustment(**adj_args)
         scale.set_adjustment(adj)
 
         self.image_display_mode = 'Original'
@@ -172,6 +172,7 @@ class GUI:
 class Model:
     def __init__(self, detector_cfg, image_encoding):
         self.gamma = 1.
+        LOG.info(f' loading detector condif: {detector_cfg} {image_encoding}')
         self._detector = smocap.Detector(image_encoding, detector_cfg)
         self.image_path = None
         
@@ -191,9 +192,11 @@ class Model:
         self.gamma_corrected_img = cv2.LUT(self.img, table)
         
     def detect_blobs(self):
-        self.keypoints, self.img_coords = self._detector.detect_ff(self.gamma_corrected_img)
-        self.img_res = cv2.drawKeypoints(self.gamma_corrected_img, self.keypoints, np.array([]), (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
+        #self.keypoints, self.img_coords = self._detector.detect_ff(self.gamma_corrected_img)
+        #self.img_res = cv2.drawKeypoints(self.gamma_corrected_img, self.keypoints, np.array([]), (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        self.keypoints, self.img_coords = self._detector.detect_ff(self.img)
+        self.img_res = cv2.drawKeypoints(self.img, self.keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        
     def cluster_blobs(self):
         self.clusters_id = self._detector.cluster_keypoints(self.img_coords)
         #print self.clusters
