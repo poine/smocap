@@ -72,6 +72,7 @@ class ExtrCalibPipeline(cv_u.Pipeline):
         self.ref_2_cam_T = np.dot(self.board_2_cam_T, self.ref_2_board_T)
         cam.set_pose_T(self.ref_2_cam_T)
         
+        
     def _process_image(self, img, cam, stamp, stop_when_localized=True):
         self.img = img
         if self.ref_2_cam_T is None or not stop_when_localized:
@@ -94,7 +95,7 @@ class ExtrCalibPipeline(cv_u.Pipeline):
         else:
             if self.display_mode == 1: # input
                 debug_img = self.img.copy()
-            elif self.display_mode == 2: # 
+            elif self.display_mode == 2: # aruco 
                 debug_img = cv2.cvtColor(self.img, cv2.COLOR_GRAY2BGR)
                 #debug_img = cv2.cvtColor(self.threshold1, cv2.COLOR_GRAY2BGR)
                 #cv2.drawContours(debug_img, self.cnt_max, -1, cntmax_color, 3)
@@ -106,7 +107,7 @@ class ExtrCalibPipeline(cv_u.Pipeline):
                     cv2.drawFrameAxes(debug_img, cam.K, cam.D, self.rvec, self.tvec, 0.1)
                 self._draw_path(cam, debug_img)
                  
-            elif self.display_mode == 3: # 
+            elif self.display_mode == 3: # bird eye
                 if self.bird_eye is None :
                     debug_img = self.img.copy()
                 else:
@@ -154,7 +155,9 @@ class Node(cv_rpu.SimpleVisionPipeNode):
             self.send_transform()
     
     def send_transform(self):
-        t_ref2cam, q_ref2cam = cv_u.tq_of_T(self.pipeline.ref_2_cam_T)
+        T_ref2cam = self.pipeline.ref_2_cam_T
+        T_ref2cam = np.linalg.inv(T_ref2cam) # WTF - FIXME
+        t_ref2cam, q_ref2cam = cv_u.tq_of_T(T_ref2cam)
         static_transformStamped = geometry_msgs.msg.TransformStamped()
         static_transformStamped.header.stamp = rospy.Time.now()
         static_transformStamped.header.frame_id = "world"

@@ -16,22 +16,22 @@ import smocap.smocap_single
 import smocap.msg
 
 class NodePublisher:
-    def __init__(self, cam_sys):
+    def __init__(self, cam_sys, publish_image=False, publish_fov=False):
         self.pose_pub = smocap.rospy_utils.PosePublisher()
-        self.fov_pub =  smocap.rospy_utils.FOVPublisher(cam_sys)
+        self.fov_pub =  smocap.rospy_utils.FOVPublisher(cam_sys) if publish_fov else None
         self.stat_pub = smocap.rospy_utils.StatusPublisher()
         self.stat_pub2 = smocap.rospy_utils.SmocapStatusPublisher()
-        self.img_pub = smocap.rospy_utils.ImgPublisher(cam_sys)
+        self.img_pub = smocap.rospy_utils.ImgPublisher(cam_sys) if publish_image else None
         #self.img_pub = cv_rpu.CompressedImgPublisher(cam=None, img_topic='/smocap/image_debug')
 
     def publish_pose(self, T_m2w):
         self.pose_pub.publish(T_m2w)
     
     def publish_periodic(self, _profiler, _mocap, _imgs):
-        self.fov_pub.publish()
+        if self.fov_pub is not None: self.fov_pub.publish()
         self.stat_pub.publish_txt(self.write_status(_profiler, _mocap))
         self.stat_pub2.publish((_profiler, _mocap))
-        self.img_pub.publish( _imgs, _profiler, _mocap)
+        if self.img_pub is not None: self.img_pub.publish( _imgs, _profiler, _mocap)
         #if len(_imgs)>0:
         #    self.img_pub.publish2( _imgs[0])
 

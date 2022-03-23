@@ -3,6 +3,11 @@ import yaml
 import pdb
 import smocap.utils
 
+#
+# FIXME: remove this file and use common_vision.camera instead
+#
+
+
 class Camera:
     def __init__(self, _id, name, encoding='mono8'):
         self._id, self.name = _id, name
@@ -126,7 +131,7 @@ def load_intrinsics(filename, verbose=False):
     return camera_matrix, dist_coeffs, w, h
 
 # stolen from /opt/ros/kinetic/lib/python2.7/dist-packages/camera_calibration/calibrator.py
-def write_extrinsics(filename, cam_info_msg, cname='unknown'):
+def write_intrinsics(filename, cam_info_msg, cname='unknown'):
     #print cam_info_msg
     txt = (""
            + "image_width: " + str(cam_info_msg.width) + "\n"
@@ -139,7 +144,7 @@ def write_extrinsics(filename, cam_info_msg, cname='unknown'):
            + "distortion_model: " + ("rational_polynomial" if len(cam_info_msg.D) > 5 else "plumb_bob") + "\n"
            + "distortion_coefficients:\n"
            + "  rows: 1\n"
-           + "  cols: 5\n"
+           + f"  cols: {len(cam_info_msg.D)}\n"
            + "  data: [" + ", ".join(["%8f" % cam_info_msg.D[i] for i in range(len(cam_info_msg.D))]) + "]\n"
            + "rectification_matrix:\n"
            + "  rows: 3\n"

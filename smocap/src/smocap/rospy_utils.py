@@ -166,7 +166,7 @@ class FOVPublisher:
             marker.type = marker.LINE_STRIP
             marker.action = marker.ADD
             marker.id = idx_cam
-            marker.text = cam.name
+            #marker.text = cam.name
             marker.scale.x = 0.01
             marker.scale.y = 0.2
             marker.scale.z = 0.2
