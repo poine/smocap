@@ -25,15 +25,19 @@ class BeParamTrack:
     s = dy/w                          # scale
     h = int(dx/s)                     # bird eye image height
 
-
+#
+# The savy publishers only publishes when someone is listening
+# It also handles connecting and disconnecting of message sources
+# in order to minimize network usage
+#
 class SavyImgPublisher(cv_rpu.SavyPublisher):
-    def __init__(self, cam):
-        pub_topic, msg_class = '/smocap_display/image2/compressed', sensor_msgs.msg.CompressedImage
+    def __init__(self, cam, use_bird_eye=False):
+        pub_topic, msg_class = '/smocap_display/image/compressed', sensor_msgs.msg.CompressedImage
         cv_rpu.SavyPublisher.__init__(self, pub_topic, msg_class, 'SmocapDisplayNode')
         self.subscriber = None
         self.compressed_img = None
-        self.bird_eye = cv_be.BirdEye(cam, BeParamTrack(), cache_filename='/tmp/be_cfg.npz', force_recompute=False)
-        self.display_mode = 2
+        self.bird_eye = cv_be.BirdEye(cam, BeParamTrack(), cache_filename='/tmp/be_cfg.npz', force_recompute=False) if use_bird_eye else None
+        self.display_mode = 0
 
     def set_display_mode(self, m): self.display_mode = m
     
@@ -51,14 +55,18 @@ class SavyImgPublisher(cv_rpu.SavyPublisher):
         self.subscriber = None
 
     def _publish(self, model, args):
+        if self.display_mode == 0: return
+        f, h, c, w = cv_u.get_default_cv_text_params()
         try:
             self.compressed_img = np.frombuffer(self.subscriber.get().data, np.uint8)
             self.img_bgr = cv2.imdecode(self.compressed_img, cv2.IMREAD_COLOR)
             self._draw(self.img_bgr, model, args)
         except cv_rpu.NoRXMsgException:
             self.img_bgr = np.zeros((model.cam.h, model.cam.w, 3), dtype=np.uint8)
+            cv2.putText(self.img_bgr, 'No Image received', (20, 50), f, 0.8*h, c, w)
         except cv_rpu.RXMsgTimeoutException:
             self.img_bgr = np.zeros((model.cam.h, model.cam.w, 3), dtype=np.uint8)
+            cv2.putText(self.img_bgr, 'Image reception Timeout', (20, 50), f, 0.8*h, c, w)
         msg = sensor_msgs.msg.CompressedImage()
         msg.header.stamp = rospy.Time.now()
         msg.format = "jpeg"
@@ -79,33 +87,45 @@ class SavyImgPublisher(cv_rpu.SavyPublisher):
 
         
     def _draw(self, img, model, args):
+        # Text
+        f, h, c, w = cv_u.get_default_cv_text_params()
         if model.smocap_status is not None:
             t_m2w = np.array(smocap_u.list_of_position(model.smocap_status.marker_pose[0].position))
             q_m2w = smocap_u.list_of_orientation(model.smocap_status.marker_pose[0].orientation)
             T_m2w = smocap_u.T_of_t_q(t_m2w, q_m2w)
-        if self.display_mode == 1:
+        if self.display_mode == 0:
+            # FIXME: maybe we should not be here?
+            debug_img = self.img_bgr
+        elif self.display_mode == 1:
             # Background, input image
             debug_img = self.img_bgr
             if model.smocap_status is not None:  # Draw marker
                 cv_u.CamDrawer.draw_trihedral(debug_img, model.cam, T_m2w, _len=0.1)
+                T_m2bl = T_m2w.copy(); T_m2bl[2,3]-=0.11
+                cv_u.CamDrawer.draw_trihedral(debug_img, model.cam, T_m2bl, _len=0.05)
             
             
         elif self.display_mode == 2:
             # Background, bird eye
-            debug_img = self.bird_eye.undist_unwarp_img(self.img_bgr, model.cam, fill_bg=cv_u.chroma_blue)
-            ui = cv_be.UnwarpedImage()
-            ui.draw_grid(debug_img, self.bird_eye, model.cam, 0.1)
-            if model.smocap_status is not None:
-                ui.draw_trihedral(debug_img, self.bird_eye, model.cam, T_m2w, _len=0.1)
-            
+            if self.bird_eye is not None:
+                debug_img = self.bird_eye.undist_unwarp_img(self.img_bgr, model.cam, fill_bg=cv_u.chroma_blue)
+                ui = cv_be.UnwarpedImage()
+                ui.draw_grid(debug_img, self.bird_eye, model.cam, 0.1)
+                if model.smocap_status is not None:
+                    ui.draw_trihedral(debug_img, self.bird_eye, model.cam, T_m2w, _len=0.1)
+            else:
+                debug_img = self.img_bgr
+                cv2.putText(debug_img, "Bird eye view is disabled", (10, debug_img.shape[0]-30), f, h, cv_u.bgr_r, w)
+        else:
+            debug_img = self.img_bgr
+            cv2.putText(debug_img, "Unavailable view", (10, 30), f, h, c, w)
         # Text
-        f, h, c, w = cv_u.get_default_cv_text_params()
         c = (0,256,0)
         x0, y0, txt = 10, 30, f'{model.cam.name}'
         cv2.putText(debug_img, txt, (x0, y0), f, h, c, w)
         dy = 40
         if model.smocap_status is not None:
-            self._draw_cam_stats(img, model, x0, y0, dy, (f, h, c, w))
+            self._draw_cam_stats(debug_img, model, x0, y0, dy, (f, h, c, w))
             x1=30
             txt, y5 = f'marker:', y0+5*dy
             cv2.putText(debug_img, txt, (x0, y5), f, h, c, w)
@@ -135,7 +155,7 @@ class Node(cv_rpu.PeriodicNode):
         self.cam = cv_rpu.retrieve_cam(cam_name, fetch_extrinsics=True, world=ref_frame)
         self.cam.set_undistortion_param(alpha=1)
 
-        self.publisher = SavyImgPublisher(self.cam)
+        self.publisher = SavyImgPublisher(self.cam, use_bird_eye=True)
 
         self.stat_sub = smocap_rpu.SmocapStatusSubscriber(what=name, timeout=0.75)
 
@@ -143,11 +163,6 @@ class Node(cv_rpu.PeriodicNode):
 
     def cfg_callback(self, config, level):
         rospy.loginfo("  Reconfigure Request:")
-        #try:
-        #    self.pipeline.contour_finder.min_area = config['mask_min_area']
-        #    self.pipeline.thresholder.set_offset(config['bridge_offset'])
-        #except AttributeError: pass
-        #self.pipeline.display_mode = config['display_mode']
         self.publisher.set_display_mode(config['display_mode'])
         return config
     
